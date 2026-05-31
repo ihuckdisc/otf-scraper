@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Roboto, Arial, sans-serif; font-size: 13px; color: #202124; margin: 14px; }
+      h2 { font-size: 15px; margin: 0 0 2px; }
+      .sub { color: #5f6368; font-size: 12px; margin: 0 0 12px; }
+      h3 { margin: 16px 0 6px; font-size: 11px; letter-spacing: .05em; color: #5f6368; text-transform: uppercase; border-bottom: 1px solid #ececec; padding-bottom: 4px; }
+      label { display: block; margin: 8px 0 2px; color: #3c4043; }
+      input { width: 100%; box-sizing: border-box; padding: 7px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px; }
+      input:focus { outline: none; border-color: #1a73e8; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+      .req { color: #d93025; }
+      .hint { color: #80868b; font-size: 11px; }
+      .actions { margin-top: 18px; display: flex; gap: 14px; align-items: center; }
+      button { background: #1a73e8; color: #fff; border: 0; border-radius: 4px; padding: 9px 18px; cursor: pointer; font-size: 13px; }
+      button:disabled { background: #9bb9e8; cursor: default; }
+      a { color: #5f6368; cursor: pointer; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      #status { color: #d93025; min-height: 16px; margin-top: 10px; font-size: 12px; }
+      .footnote { color: #80868b; font-size: 11px; margin-top: 6px; }
+    </style>
+  </head>
+  <body>
+    <h2>Add Manual Workout</h2>
+    <p class="sub">For sessions with no scrapable email. All fields except Date are optional.</p>
+
+    <div id="form"></div>
+    <div id="status"></div>
+
+    <div class="actions">
+      <button id="submitBtn" onclick="save()">Add Row</button>
+      <a onclick="google.script.host.close()">Cancel</a>
+    </div>
+    <p class="footnote">Saved as Source = Manual. Blank fields stay blank (never 0).</p>
+
+    <script>
+      // Fields whose headers start with these go under a shared group heading.
+      var GROUPS = [
+        { title: 'Class', match: function (k) { return ['date', 'studio', 'classTime', 'coach'].indexOf(k) !== -1; } },
+        { title: 'Heart Rate Zones (min)', match: function (k) { return k.indexOf('zone') === 0; } },
+        { title: 'Treadmill', match: function (k) { return k.indexOf('tread') === 0 || k === 'elevationGain'; } },
+        { title: 'Rower', match: function (k) { return k.indexOf('rower') === 0; } }
+      ];
+
+      function groupFor(key) {
+        for (var i = 0; i < GROUPS.length; i++) if (GROUPS[i].match(key)) return GROUPS[i].title;
+        return 'Summary';
+      }
+
+      google.script.run.withSuccessHandler(render).withFailureHandler(showError).getManualRowFields();
+
+      function render(fields) {
+        // Bucket fields by group, preserving schema order.
+        var order = ['Class', 'Summary', 'Heart Rate Zones (min)', 'Treadmill', 'Rower'];
+        var buckets = {};
+        fields.forEach(function (f) {
+          var g = groupFor(f.key);
+          (buckets[g] = buckets[g] || []).push(f);
+        });
+
+        var html = '';
+        order.forEach(function (g) {
+          var items = buckets[g];
+          if (!items || !items.length) return;
+          html += '<h3>' + g + '</h3>';
+          // Zones + Summary read better as a 2-column grid.
+          var grid = (g === 'Summary' || g === 'Heart Rate Zones (min)');
+          html += grid ? '<div class="grid">' : '';
+          items.forEach(function (f) {
+            var req = f.key === 'date' ? ' <span class="req">*</span>' : '';
+            var hint = f.key === 'date' ? ' <span class="hint">(MM/DD/YYYY)</span>'
+                     : f.key === 'classTime' ? ' <span class="hint">(e.g. 6:05 AM)</span>'
+                     : f.duration ? ' <span class="hint">(mm:ss)</span>' : '';
+            html += '<div>' +
+                      '<label>' + f.header + req + hint + '</label>' +
+                      '<input id="f_' + f.key + '" data-key="' + f.key + '">' +
+                    '</div>';
+          });
+          html += grid ? '</div>' : '';
+        });
+        document.getElementById('form').innerHTML = html;
+        var d = document.getElementById('f_date');
+        if (d) d.focus();
+      }
+
+      function save() {
+        var data = {};
+        var inputs = document.querySelectorAll('[data-key]');
+        for (var i = 0; i < inputs.length; i++) {
+          data[inputs[i].getAttribute('data-key')] = inputs[i].value;
+        }
+        if (!data.date || !data.date.trim()) {
+          document.getElementById('status').textContent = 'Date is required (MM/DD/YYYY).';
+          return;
+        }
+        var btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        document.getElementById('status').textContent = 'Saving...';
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (res && res.ok) { google.script.host.close(); }
+            else { btn.disabled = false; document.getElementById('status').textContent = (res && res.message) || 'Could not add row.'; }
+          })
+          .withFailureHandler(function (err) { btn.disabled = false; showError(err); })
+          .submitManualRow(data);
+      }
+
+      function showError(err) {
+        document.getElementById('status').textContent = String(err && err.message ? err.message : err);
+      }
+    </script>
+  </body>
+</html>

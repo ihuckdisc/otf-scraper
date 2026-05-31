@@ -1,0 +1,11 @@
+# clasp auth (never commit)
+.clasprc.json
+
+# OS noise
+.DS_Store
+
+# Local node deps (only the dev harness uses node; no deps required)
+node_modules/
+
+# Sample OTF emails (local only; may contain personal data)
+fixtures/
