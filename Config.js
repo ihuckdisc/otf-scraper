@@ -14,7 +14,7 @@
 var SENDER = 'OTbeatReport@orangetheoryfitness.com';
 
 /** Bump when releasing script changes; Welcome tab shows this after Initialize Sheet. */
-var SCRIPT_VERSION = '1.5.1';
+var SCRIPT_VERSION = '1.5.2';
 
 /** Sheet/tab names. */
 var SHEETS = {

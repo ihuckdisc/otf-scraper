@@ -182,7 +182,7 @@ function runTests() {
 
   // --- 5e. Derived formula columns (v1.2.0) -----------------------------
   c.eq('schema column count', COLUMNS.length, 54);
-  c.eq('SCRIPT_VERSION', SCRIPT_VERSION, '1.5.1');
+  c.eq('SCRIPT_VERSION', SCRIPT_VERSION, '1.5.2');
 
   var peakMinusCol = findColumn_('_peakMinusAvgHr');
   c.truthy('schema includes _peakMinusAvgHr', !!peakMinusCol);
