@@ -430,10 +430,24 @@ function refreshMonthlyBand_(ss) {
 
   writeMonthlyBandBody_(sheet, rows, m, L);
 
+  refreshQueryBands_(sheet, L);
+
   if (typeof Logger !== 'undefined' && Logger.log) {
     Logger.log('Dash_Calc monthly refresh: dataRows=' + records.length
       + ', spineMonths=' + rows.length + ', elapsedMs=' + (Date.now() - startMs));
   }
+}
+
+/**
+ * Re-apply By Coach / By Studio QUERY anchors after Data changes.
+ * QUERY can stick as #VALUE! when anchors were first set on an empty Data tab
+ * (e.g. Clear All Data → Full Scrape) until formulas are written again.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ * @param {Object} L layout spec
+ */
+function refreshQueryBands_(sheet, L) {
+  writeQueryBand_(sheet, L.byCoach, buildByCoachQuery_(), L);
+  writeQueryBand_(sheet, L.byStudio, buildByStudioQuery_(), L);
 }
 
 function ensureDashCalcSheet_(ss) {
@@ -446,8 +460,6 @@ function ensureDashCalcSheet_(ss) {
   sheet.getRange(L.titleRow, 1).setValue(L.title).setFontWeight('bold');
 
   writeMonthlyBandHeaders_(sheet, L.monthly, L);
-  writeQueryBand_(sheet, L.byCoach, buildByCoachQuery_(), L);
-  writeQueryBand_(sheet, L.byStudio, buildByStudioQuery_(), L);
   writeScorecards_(sheet, L.scorecards, buildScorecards_(), L);
 
   refreshMonthlyBand_(ss);

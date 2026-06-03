@@ -76,7 +76,7 @@ class) is parsed correctly with no code change. See `parsers/`.
 | `Menu.js` | `onOpen()` custom menu + button entry points. |
 | `Fixtures.js` | Generated: embedded email bodies for in-editor tests. |
 | `Tests.js` | In-editor test runner (`runTests`). |
-| `fixtures/` | Sample `.eml` files + `OTFData.csv` (local reference only; not pushed to GAS). |
+| `fixtures/` | `.eml` / `OTFData.csv` and dev specs (`CHART_BUILD_SPEC.md`, `DEPLOY_SMOKE.md`) local only; distribution docs (`USER_GUIDE.md`, `DASHBOARD_REFERENCE.md`, `REDDIT_POST.md`) are in git. Not pushed to GAS. |
 | `dev/` | Node-only dev harness (parser verification + fixture generation; not pushed to GAS). |
 
 ### Data tab columns (left → right, 54 total)
@@ -134,9 +134,9 @@ Routine scrapes only refresh the monthly band — they do not rebuild QUERY scor
 | Action | Dash_Calc behavior |
 |--------|-------------------|
 | **Initialize Sheet** | Full rebuild (clear + headers + formats + QUERY bands + monthly body) |
-| **Update / Full Scrape** (rows added) | Monthly band **A–S** only |
-| **Add Manual Row** | Monthly band **A–S** only |
-| **Refresh Dashboard Calcs** (menu or button) | Monthly band **A–S** only |
+| **Update / Full Scrape** (rows added) | Monthly band **A–S** + By Coach / By Studio QUERY anchors |
+| **Add Manual Row** | Monthly band **A–S** + By Coach / By Studio QUERY anchors |
+| **Refresh Dashboard Calcs** (menu or button) | Monthly band **A–S** + By Coach / By Studio QUERY anchors |
 | **Clear All / Clear Email / Reset Sheet** | Full rebuild via Initialize path |
 | **Manual edit on Data** | See tiers below |
 | Status-only scrape updates | No monthly refresh |

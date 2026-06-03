@@ -7,5 +7,8 @@
 # Local node deps (only the dev harness uses node; no deps required)
 node_modules/
 
-# Sample OTF emails (local only; may contain personal data)
-fixtures/
+# Fixtures: local samples + dev-only docs; track distribution markdown only
+fixtures/*
+!fixtures/DASHBOARD_REFERENCE.md
+!fixtures/USER_GUIDE.md
+!fixtures/REDDIT_POST.md
