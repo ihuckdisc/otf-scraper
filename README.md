@@ -76,7 +76,7 @@ class) is parsed correctly with no code change. See `parsers/`.
 | `Menu.js` | `onOpen()` custom menu + button entry points. |
 | `Fixtures.js` | Generated: embedded email bodies for in-editor tests. |
 | `Tests.js` | In-editor test runner (`runTests`). |
-| `fixtures/` | `.eml` / `OTFData.csv` and dev specs (`CHART_BUILD_SPEC.md`, `DEPLOY_SMOKE.md`) local only; distribution docs (`USER_GUIDE.md`, `DASHBOARD_REFERENCE.md`, `REDDIT_POST.md`) are in git. Not pushed to GAS. |
+| `fixtures/` | `.eml` / `OTFData.csv` and dev specs (`CHART_BUILD_SPEC.md`, `DEPLOY_SMOKE.md`, `REDDIT_POST.md`) local only; distribution docs (`USER_GUIDE.md`, `DASHBOARD_REFERENCE.md`) are in git. Not pushed to GAS. |
 | `dev/` | Node-only dev harness (parser verification + fixture generation; not pushed to GAS). |
 
 ### Data tab columns (left → right, 54 total)

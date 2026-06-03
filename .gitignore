@@ -11,4 +11,3 @@ node_modules/
 fixtures/*
 !fixtures/DASHBOARD_REFERENCE.md
 !fixtures/USER_GUIDE.md
-!fixtures/REDDIT_POST.md
