@@ -138,6 +138,23 @@ function runTests() {
   c.eq('toLocalMidnight year', lateNight.getFullYear(), 2021);
   c.eq('toLocalMidnight hour', lateNight.getHours(), 0);
 
+  // --- 5a. addCalendarMonths_ (portable month stepping) -----------------
+  var dec1 = new Date(2019, 11, 1);
+  var janNext = addCalendarMonths_(dec1, 1);
+  c.eq('addCalendarMonths Dec→Jan year', janNext.getFullYear(), 2020);
+  c.eq('addCalendarMonths Dec→Jan month', janNext.getMonth(), 0);
+  c.eq('addCalendarMonths Dec→Jan day', janNext.getDate(), 1);
+
+  var jan31 = new Date(2020, 0, 31);
+  var febFromJan31 = addCalendarMonths_(jan31, 1);
+  c.eq('addCalendarMonths Jan31→Feb month', febFromJan31.getMonth(), 1);
+  c.eq('addCalendarMonths Jan31→Feb day', febFromJan31.getDate(), 1);
+
+  var jun15 = new Date(2018, 5, 15);
+  var sepFromJun = addCalendarMonths_(jun15, 3);
+  c.eq('addCalendarMonths Jun+3 month', sepFromJun.getMonth(), 8);
+  c.eq('addCalendarMonths Jun+3 year', sepFromJun.getFullYear(), 2018);
+
   // --- 5b. Manual-row form fields (schema-derived) ----------------------
   var manualFields = getManualRowFields();
   var manualKeys = manualFields.map(function (f) { return f.key; });
@@ -165,7 +182,7 @@ function runTests() {
 
   // --- 5e. Derived formula columns (v1.2.0) -----------------------------
   c.eq('schema column count', COLUMNS.length, 54);
-  c.eq('SCRIPT_VERSION', SCRIPT_VERSION, '1.3.9');
+  c.eq('SCRIPT_VERSION', SCRIPT_VERSION, '1.5.1');
 
   var peakMinusCol = findColumn_('_peakMinusAvgHr');
   c.truthy('schema includes _peakMinusAvgHr', !!peakMinusCol);
@@ -230,46 +247,143 @@ function runTests() {
   c.eq('colQueryRef date', colQueryRef_('date'), 'Col' + colIndexForKey_('date'));
   c.eq('colQueryRef zoneGrey', colQueryRef_('zoneGrey'), 'Col' + colIndexForKey_('zoneGrey'));
 
-  var monthlyQuery = buildMonthlyQuery_();
-  c.truthy('monthly query reads Data body', monthlyQuery.indexOf(SHEETS.DATA + '!A2:' + lastColLetter_()) !== -1);
-  c.truthy('monthly query uses year/month on date col', monthlyQuery.indexOf('year(Col2)') !== -1);
-  c.truthy('monthly query groups by year and month', monthlyQuery.indexOf('group by year(Col2), month(Col2)') !== -1);
-  c.falsy('monthly query avoids format() — not in QUERY lang', monthlyQuery.indexOf('format(') !== -1);
-  c.falsy('monthly query avoids formula Col7', monthlyQuery.indexOf('Col7') !== -1);
-  c.truthy('monthly query filters with date literal', monthlyQuery.indexOf("Col2 >= date '2010-01-01'") !== -1);
-  c.falsy('monthly query has no order by (breaks grouped QUERY)', monthlyQuery.indexOf('order by') !== -1);
-  c.truthy('monthly query references date count', monthlyQuery.indexOf('count(Col2)') !== -1);
-  c.truthy('monthly query references calories', monthlyQuery.indexOf('sum(Col11)') !== -1);
-  c.truthy('monthly query references zoneGrey sum', monthlyQuery.indexOf('sum(Col18)') !== -1);
-  c.truthy('monthly query references zoneRed sum', monthlyQuery.indexOf('sum(Col22)') !== -1);
-  c.falsy('monthly query has NO division (multi-div => #N/A, probe G)', monthlyQuery.indexOf('/') !== -1);
-  c.falsy('monthly query avoids sparse steps col', monthlyQuery.indexOf('Col23') !== -1);
-  c.falsy('monthly query avoids sparse tread cols', monthlyQuery.indexOf('Col31') !== -1);
-  c.falsy('monthly query avoids sparse rower cols', monthlyQuery.indexOf('Col48') !== -1);
-  c.falsy('monthly query avoids _calPerActiveMin', monthlyQuery.indexOf('_calPerActiveMin') !== -1);
-  c.falsy('monthly query avoids _zoneRedPct', monthlyQuery.indexOf('_zoneRedPct') !== -1);
-  c.falsy('monthly query avoids _stepsPerMile', monthlyQuery.indexOf('_stepsPerMile') !== -1);
-  c.truthy('monthly query blanks auto headers via label', monthlyQuery.indexOf("label year(Col2) ''") !== -1);
-
   c.eq('blankLabels builds empty label clause', blankLabels_(['year(Col2)', 'count(Col2)']),
     "label year(Col2) '', count(Col2) ''");
 
-  var derived = buildMonthlyDerivedFormulas_(
-    { year: 'B', totalCal: 'E', grey: 'I', blue: 'J', green: 'K', orange: 'L', red: 'M' }, 3);
-  c.eq('derived has 6 ratio formulas', derived.length, 6);
-  c.truthy('derived cal/min divides total cal by zone total',
-    derived[0].indexOf('E3:E/(I3:I+J3:J+K3:K+L3:L+M3:M)') !== -1);
-  c.truthy('derived uses ARRAYFORMULA + IFERROR',
-    derived[0].indexOf('ARRAYFORMULA') !== -1 && derived[0].indexOf('IFERROR') !== -1);
-  c.truthy('derived grey pct divides grey by zone total',
-    derived[1].indexOf('I3:I/(I3:I+J3:J+K3:K+L3:L+M3:M)') !== -1);
-  c.truthy('derived red pct divides red by zone total',
-    derived[5].indexOf('M3:M/(I3:I+J3:J+K3:K+L3:L+M3:M)') !== -1);
+  c.eq('monthly band colCount', DASH_CALC_LAYOUT_.monthly.colCount, 19);
 
-  var monthLabel = buildMonthLabelFormula_('B', 'C', 3);
-  c.truthy('month label builds yyyy-mm', monthLabel.indexOf('"yyyy-mm"') !== -1);
-  c.truthy('month label uses ARRAYFORMULA', monthLabel.indexOf('ARRAYFORMULA') !== -1);
-  c.truthy('month label guards non-numeric year via ISNUMBER', monthLabel.indexOf('ISNUMBER(B3:B)') !== -1);
+  function rowByMonthLabel_(rows, label) {
+    for (var ri = 0; ri < rows.length; ri++) {
+      if (rows[ri][0] === label) return rows[ri];
+    }
+    return null;
+  }
+  function approxEq_(label, actual, expected, tol) {
+    tol = tol == null ? 0.01 : tol;
+    var ok = typeof actual === 'number' && typeof expected === 'number'
+      && Math.abs(actual - expected) < tol;
+    if (ok) { c.passed++; }
+    else { c.failed++; c.failures.push(label + ': expected ' + expected + ', got ' + actual); }
+  }
+
+  // --- 6c. Monthly spine + aggregation (script-computed band) ------------
+  var boundsFebJun = firstLastClassMonth_([
+    { date: new Date(2018, 1, 10) },
+    { date: new Date(2018, 5, 20) }
+  ]);
+  var spineFive = buildMonthSpine_(boundsFebJun.first, boundsFebJun.last);
+  c.eq('spine Feb–Jun count', spineFive.length, 5);
+  c.eq('spine first label', spineFive[0].label, '2018-02');
+
+  var gapRecords = [
+    { date: new Date(2019, 11, 5), calories: 100, splatPoints: 1, avgHr: 130,
+      zoneGrey: 1, zoneBlue: 1, zoneGreen: 1, zoneOrange: 1, zoneRed: 1 },
+    { date: new Date(2023, 0, 5), calories: 200, splatPoints: 2, avgHr: 140,
+      zoneGrey: 2, zoneBlue: 2, zoneGreen: 2, zoneOrange: 2, zoneRed: 2 }
+  ];
+  var gapBounds = firstLastClassMonth_(gapRecords);
+  var gapSpine = buildMonthSpine_(gapBounds.first, gapBounds.last);
+  c.truthy('gap spine includes 2020-01', gapSpine.some(function (e) { return e.label === '2020-01'; }));
+  c.truthy('gap spine includes 2022-12', gapSpine.some(function (e) { return e.label === '2022-12'; }));
+
+  var gapRows = buildMonthlyBandRows_(gapSpine, aggregateMonthlyFromRecords_(gapRecords));
+  var pause2020 = rowByMonthLabel_(gapRows, '2020-03');
+  c.truthy('gap pause month present', !!pause2020);
+  c.eq('gap pause classes', pause2020[3], 0);
+  c.eq('gap pause avg cal blank', pause2020[5], '');
+  c.eq('gap pause grey pct blank', pause2020[14], '');
+
+  var jan2026Records = [
+    { date: new Date(2025, 11, 10), calories: 500, splatPoints: 10, avgHr: 150,
+      zoneGrey: 5, zoneBlue: 5, zoneGreen: 5, zoneOrange: 5, zoneRed: 5 },
+    { date: new Date(2026, 1, 10), calories: 600, splatPoints: 12, avgHr: 155,
+      zoneGrey: 6, zoneBlue: 6, zoneGreen: 6, zoneOrange: 6, zoneRed: 6 }
+  ];
+  var jan2026Rows = buildMonthlyBandRows_(
+    buildMonthSpine_(firstLastClassMonth_(jan2026Records).first, firstLastClassMonth_(jan2026Records).last),
+    aggregateMonthlyFromRecords_(jan2026Records));
+  var jan2026Pause = rowByMonthLabel_(jan2026Rows, '2026-01');
+  c.eq('Jan 2026 gap classes', jan2026Pause[3], 0);
+  c.eq('Jan 2026 gap avg HR blank', jan2026Pause[7], '');
+
+  var decRows = buildMonthlyBandRows_(
+    [{ label: '2019-12', year: 2019, month: 12 }],
+    { '2019-12': { classes: 1, sumCal: 0, sumSplats: 0, hrSum: 0, hrCount: 0,
+      zoneGrey: 0, zoneBlue: 0, zoneGreen: 0, zoneOrange: 0, zoneRed: 0 } });
+  c.eq('December month col C', decRows[0][2], 12);
+
+  var hrTwoRecords = [
+    { date: new Date(2021, 5, 1), calories: 400, splatPoints: 8, avgHr: 160,
+      zoneGrey: 1, zoneBlue: 1, zoneGreen: 10, zoneOrange: 5, zoneRed: 1 },
+    { date: new Date(2021, 5, 15), calories: 500, splatPoints: 10, avgHr: '',
+      zoneGrey: 1, zoneBlue: 1, zoneGreen: 10, zoneOrange: 5, zoneRed: 1 }
+  ];
+  var hrJune = rowByMonthLabel_(
+    buildMonthlyBandRows_(buildMonthSpine_(new Date(2021, 5, 1), new Date(2021, 5, 1)),
+      aggregateMonthlyFromRecords_(hrTwoRecords)), '2021-06');
+  c.eq('avg HR one class with HR', hrJune[7], 160);
+
+  c.eq('empty records monthly rows', buildMonthlyBandRows_([], {}), []);
+
+  // Golden parity: fully populated rows; D–M hand-verified (QUERY-equivalent).
+  var goldenRecords = [
+    { date: new Date(2019, 11, 5), calories: 100, splatPoints: 5, avgHr: 140,
+      zoneGrey: 1, zoneBlue: 2, zoneGreen: 10, zoneOrange: 5, zoneRed: 1 },
+    { date: new Date(2019, 11, 20), calories: 200, splatPoints: 10, avgHr: '',
+      zoneGrey: 2, zoneBlue: 3, zoneGreen: 12, zoneOrange: 6, zoneRed: 2 },
+    { date: new Date(2020, 0, 10), calories: 500, splatPoints: 20, avgHr: 150,
+      zoneGrey: 10, zoneBlue: 10, zoneGreen: 10, zoneOrange: 10, zoneRed: 10 },
+    { date: new Date(2020, 2, 1), calories: 100, splatPoints: 4, avgHr: 130,
+      zoneGrey: 1, zoneBlue: 1, zoneGreen: 5, zoneOrange: 2, zoneRed: 1 },
+    { date: new Date(2020, 2, 15), calories: 100, splatPoints: 4, avgHr: 130,
+      zoneGrey: 1, zoneBlue: 1, zoneGreen: 5, zoneOrange: 2, zoneRed: 1 },
+    { date: new Date(2020, 2, 20), calories: 100, splatPoints: 4, avgHr: 130,
+      zoneGrey: 1, zoneBlue: 1, zoneGreen: 5, zoneOrange: 2, zoneRed: 1 }
+  ];
+  var goldenBounds = firstLastClassMonth_(goldenRecords);
+  var goldenRows = buildMonthlyBandRows_(
+    buildMonthSpine_(goldenBounds.first, goldenBounds.last),
+    aggregateMonthlyFromRecords_(goldenRecords));
+  var gDec = rowByMonthLabel_(goldenRows, '2019-12');
+  c.eq('golden Dec classes', gDec[3], 2);
+  c.eq('golden Dec total cal', gDec[4], 300);
+  approxEq_('golden Dec avg cal', gDec[5], 150);
+  approxEq_('golden Dec avg splat', gDec[6], 7.5);
+  c.eq('golden Dec avg HR', gDec[7], 140);
+  c.eq('golden Dec grey min', gDec[8], 3);
+  c.eq('golden Dec red min', gDec[12], 3);
+  var gJan = rowByMonthLabel_(goldenRows, '2020-01');
+  c.eq('golden Jan classes', gJan[3], 1);
+  c.eq('golden Jan total cal', gJan[4], 500);
+  var gMar = rowByMonthLabel_(goldenRows, '2020-03');
+  c.eq('golden Mar classes', gMar[3], 3);
+  c.eq('golden Mar total cal', gMar[4], 300);
+
+  // JSON snapshot: multi-month spine with pause + active metrics.
+  var snapRecords = [
+    { date: new Date(2018, 0, 1), calories: 400, splatPoints: 8, avgHr: 140,
+      zoneGrey: 2, zoneBlue: 2, zoneGreen: 20, zoneOrange: 8, zoneRed: 2 },
+    { date: new Date(2018, 2, 1), calories: 450, splatPoints: 9, avgHr: 145,
+      zoneGrey: 2, zoneBlue: 2, zoneGreen: 22, zoneOrange: 9, zoneRed: 2 }
+  ];
+  var snapRows = buildMonthlyBandRows_(
+    buildMonthSpine_(firstLastClassMonth_(snapRecords).first, firstLastClassMonth_(snapRecords).last),
+    aggregateMonthlyFromRecords_(snapRecords));
+  c.eq('snapshot spine months', snapRows.length, 3);
+  c.eq('snapshot pause Feb classes', rowByMonthLabel_(snapRows, '2018-02')[3], 0);
+  c.eq('snapshot Mar classes', rowByMonthLabel_(snapRows, '2018-03')[3], 1);
+
+  var bigRecords = [];
+  for (var bi = 0; bi < 5000; bi++) {
+    bigRecords.push({
+      date: new Date(2020, bi % 12, (bi % 28) + 1),
+      calories: 400 + (bi % 100), splatPoints: 10, avgHr: 140,
+      zoneGrey: 1, zoneBlue: 2, zoneGreen: 20, zoneOrange: 8, zoneRed: 1
+    });
+  }
+  c.truthy('5000-record aggregate', buildMonthlyBandRows_(
+    buildMonthSpine_(firstLastClassMonth_(bigRecords).first, firstLastClassMonth_(bigRecords).last),
+    aggregateMonthlyFromRecords_(bigRecords)).length > 0);
 
   var coachQuery = buildByCoachQuery_();
   c.truthy('by-coach query groups by Col9', coachQuery.indexOf('group by Col9') !== -1);
@@ -283,10 +397,15 @@ function runTests() {
   c.falsy('by-studio query avoids _calPerActiveMin', studioQuery.indexOf('_calPerActiveMin') !== -1);
 
   var cards = buildScorecards_();
-  c.truthy('scorecards non-empty', cards.length > 0);
+  c.eq('scorecards count', cards.length, 12);
   var cardFormulas = cards.map(function (k) { return k.formula; }).join(' | ');
   c.truthy('scorecards include a MINIFS PR', cardFormulas.indexOf('MINIFS(') !== -1);
   c.truthy('scorecards reference Data column', cardFormulas.indexOf(SHEETS.DATA + '!') !== -1);
+  var maxWattsCol = colLetterForKey_('rowerMaxWatts');
+  c.truthy('scorecards last is max rower watts', cards[11].label.indexOf('Max Rower Watts') !== -1
+    && cards[11].label.indexOf('Avg') === -1);
+  c.truthy('scorecards max rower watts uses rowerMaxWatts col',
+    cards[11].formula.indexOf(SHEETS.DATA + '!' + maxWattsCol + ':' + maxWattsCol) !== -1);
 
   // --- 7. Welcome / version ---------------------------------------------
   c.truthy('SCRIPT_VERSION set', SCRIPT_VERSION && String(SCRIPT_VERSION).trim());

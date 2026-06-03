@@ -196,6 +196,24 @@ function toLocalMidnight(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+/**
+ * Add signed calendar months to a date, returning the first day of the result
+ * month (local timezone). Pure JS — safe under Node and Apps Script.
+ * @param {Date} date
+ * @param {number} deltaMonths
+ * @returns {Date}
+ */
+function addCalendarMonths_(date, deltaMonths) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) return date;
+  var anchor = new Date(date.getFullYear(), date.getMonth(), 1);
+  var y = anchor.getFullYear();
+  var m = anchor.getMonth();
+  var total = y * 12 + m + (deltaMonths | 0);
+  var newY = Math.floor(total / 12);
+  var newM = ((total % 12) + 12) % 12;
+  return new Date(newY, newM, 1);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     decodeQuotedPrintable: decodeQuotedPrintable,
@@ -211,5 +229,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseDurationToDays: parseDurationToDays,
     parseDate: parseDate,
     toLocalMidnight: toLocalMidnight,
+    addCalendarMonths_: addCalendarMonths_,
   };
 }

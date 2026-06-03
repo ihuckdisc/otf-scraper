@@ -147,11 +147,14 @@ function scrapeMessages_(query, runType) {
     }
   });
 
-  if (newRecords.length) insertRecordsAtTop(newRecords);
+  var insertResult = { refreshed: false };
+  if (newRecords.length) insertResult = insertRecordsAtTop(newRecords);
   applyStatusUpdates_(statusUpdates, stats);
 
   logRun(runType, stats);
-  toast(summarizeStats(stats), runType);
+  var toastMsg = summarizeStats(stats);
+  if (insertResult.refreshed) toastMsg += ' Dashboard data updated.';
+  toast(toastMsg, runType);
   return stats;
 }
 

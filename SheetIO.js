@@ -92,11 +92,11 @@ function syncSchemaColumns_(sheet) {
 }
 
 /**
- * Create/repair the Data and Log tabs. Safe to run repeatedly: it never clears
- * existing data rows, only (re)writes headers, formats, and formula columns.
+ * Create/repair Data and Log tabs (and Welcome). Does not rebuild Dash_Calc.
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss
+ * @returns {GoogleAppsScript.Spreadsheet.Sheet}
  */
-function ensureSheets() {
-  var ss = getSpreadsheet_();
+function ensureDataSheets_(ss) {
   var meta = getColumnMeta();
 
   var data = ss.getSheetByName(SHEETS.DATA);
@@ -104,11 +104,9 @@ function ensureSheets() {
 
   syncSchemaColumns_(data);
 
-  // Header row.
   data.getRange(1, 1, 1, meta.count).setValues([meta.headers]).setFontWeight('bold');
   data.setFrozenRows(1);
 
-  // Per-column number/date formats + hidden helper columns, applied below header.
   var maxRows = Math.max(data.getMaxRows() - 1, 1);
   for (var i = 0; i < COLUMNS.length; i++) {
     var c = COLUMNS[i];
@@ -121,18 +119,26 @@ function ensureSheets() {
     }
   }
 
-  // Stamp formula columns across any existing data rows.
   stampFormulaColumns_(data);
 
-  // Log tab.
   var log = ss.getSheetByName(SHEETS.LOG);
   if (!log) log = ss.insertSheet(SHEETS.LOG);
   log.getRange(1, 1, 1, LOG_COLUMNS.length).setValues([LOG_COLUMNS]).setFontWeight('bold');
   log.setFrozenRows(1);
 
   ensureWelcomeSheet_(ss);
-  ensureDashCalcSheet_(ss);
 
+  return data;
+}
+
+/**
+ * Create/repair Welcome, Data, Log, and Dash_Calc. Safe to run repeatedly on Data;
+ * Dash_Calc is fully rebuilt (Initialize / clear-all paths).
+ */
+function ensureSheets() {
+  var ss = getSpreadsheet_();
+  var data = ensureDataSheets_(ss);
+  ensureDashCalcSheet_(ss);
   return data;
 }
 
@@ -197,13 +203,14 @@ function recordToRowArray_(record) {
  * range by Date descending. Manual rows keep their content and are reordered by
  * date along with everything else.
  * @param {Object[]} records
+ * @returns {{refreshed:boolean}}
  */
 function insertRecordsAtTop(records) {
-  if (!records || !records.length) return;
-  var sheet = ensureSheets();
+  if (!records || !records.length) return { refreshed: false };
+  var ss = getSpreadsheet_();
+  var sheet = ensureDataSheets_(ss);
   var meta = getColumnMeta();
 
-  // Insert blank rows below the header and write the new records there.
   sheet.insertRowsBefore(2, records.length);
   var rows = records.map(recordToRowArray_);
   sheet.getRange(2, 1, rows.length, meta.count).setValues(rows);
@@ -211,6 +218,9 @@ function insertRecordsAtTop(records) {
   sortByDateDesc();
   stampFormulaColumns_(sheet);
   reapplyFormats_(sheet);
+
+  refreshMonthlyBand_(ss);
+  return { refreshed: true };
 }
 
 /** Sort the data region by the Date column, newest first. */
@@ -299,10 +309,13 @@ function submitManualRow(formData) {
   record.source = SOURCE.MANUAL;
   record.uniqueKey = buildUniqueKey(record, 'manual:' + new Date().getTime());
 
-  insertRecordsAtTop([record]);
+  var insertResult = insertRecordsAtTop([record]);
   logRun('Add Manual Row', { scanned: 0, added: 1, skipped: 0, flags: 0, errors: 0 });
-  toast('Added 1 manual row.');
-  return { ok: true, message: 'Added 1 manual row.' };
+  var toastMsg = insertResult.refreshed
+    ? 'Added 1 manual row. Dashboard data updated.'
+    : 'Added 1 manual row.';
+  toast(toastMsg);
+  return { ok: true, message: toastMsg };
 }
 
 /** Menu action: delete all data rows (Email + Manual), then restore sheet layout. */

@@ -116,19 +116,64 @@ range ignores slicers entirely.
 **Initialize Sheet** creates/refreshes the `Dash_Calc` tab (built by `Dashboard.js`) with
 four slicer-immune aggregation tables laid out in separate column bands:
 
-- **Monthly time series** — one row per Year-Month (classes, calories, splat, HR, zone
-  mix %, cal/active min). Tread/rower/steps over time are omitted from this QUERY because
-  sparse blank cells break QUERY `sum()`/`avg()`; use Data pivots or scorecards for those.
-- **By Coach** — classes, avg calories, avg splat, avg cal/active-min per coach.
-- **By Studio** — classes, avg calories, avg cal/active-min per studio.
-- **Scorecards & PRs** — all-time totals and personal records (best tread pace and best
-  500m split use `MINIFS(range, range, "<>")` so blanks are excluded from the minimum).
+- **Monthly time series (A–S)** — **script-computed** continuous month spine (first class
+  month through last class month), including pause months with zero classes so FIXED
+  over-time charts do not bridge gaps. Refreshed automatically after **Update**, **Full
+  Scrape**, and **Add Manual Row**; use **Refresh Dashboard Calcs** after manual edits to
+  monthly driver fields on Data (see below). Tread/rower/steps are not in this band.
+- **By Coach** — QUERY: classes, avg calories, avg splat, avg cal/active-min per coach.
+- **By Studio** — QUERY: classes, avg calories, avg cal/active-min per studio.
+- **Scorecards & PRs** — live formulas on `Data` columns (best tread pace and best 500m
+  split use `MINIFS` so blanks are excluded).
 
-The tab is **rebuilt idempotently** on each Initialize Sheet (it clears and rewrites the
-header labels + QUERY anchors) and never touches the user's Dashboard tab or charts.
-QUERY tables aggregate **value columns only** (via `ColN` refs inside the query string);
-derived metrics such as zone % and cal/active min are computed inline from zone-minute
-sums because QUERY cannot `AVG()` formula columns that return empty strings.
+**Initialize Sheet** fully rebuilds `Dash_Calc` (required once after deploying **1.5.0**).
+Routine scrapes only refresh the monthly band — they do not rebuild QUERY scorecard bands.
+
+### Refresh contract
+
+| Action | Dash_Calc behavior |
+|--------|-------------------|
+| **Initialize Sheet** | Full rebuild (clear + headers + formats + QUERY bands + monthly body) |
+| **Update / Full Scrape** (rows added) | Monthly band **A–S** only |
+| **Add Manual Row** | Monthly band **A–S** only |
+| **Refresh Dashboard Calcs** (menu or button) | Monthly band **A–S** only |
+| **Clear All / Clear Email / Reset Sheet** | Full rebuild via Initialize path |
+| **Manual edit on Data** | See tiers below |
+| Status-only scrape updates | No monthly refresh |
+
+### Manual Data corrections
+
+1. **New / missing class** → **Add Manual Row** (auto-refreshes monthly band).
+2. **Wrong PR metric** (rower/tread/elevation, etc.) → edit the Data cell; scorecards
+   recalc via formula — usually **no** refresh action.
+3. **Wrong monthly driver** (date, calories, splats, avg HR, zone minutes) → edit Data,
+   then **OTF Scraper → Refresh Dashboard Calcs** (not Initialize).
+4. **Broken layout / first run after 1.5.0 deploy** → **Initialize Sheet** once, then normal workflow.
+
+**Example:** Correcting implausible rower watts on Data updates **PR: Max Rower Avg Watts**
+(`AK13`) and **PR: Max Rower Watts** (`AK14`) via formula; monthly **A–S** unchanged
+unless you also changed calories/zones/date.
+
+**Note:** Avg calories/splats in the monthly band divide by class count. Legacy QUERY
+`avg()` ignored blank calories/splats on some rows; values match when every class in the
+month has those fields populated.
+
+### Migration (1.3.9 → 1.5.0)
+
+1. `clasp push` and hard-reload the spreadsheet.
+2. Run **Initialize Sheet** once (Welcome must show **1.5.0**). Do **not** run Update
+   before Initialize — light refresh expects the new monthly layout.
+3. Normal workflow: Update / Add Manual Row only (no Initialize per scrape).
+
+Versions **1.4.0–1.4.3** (formula-based monthly spine) were reverted; **1.5.0** uses
+script aggregation. Rollback: revert to **1.3.9**, `clasp push`, Initialize Sheet.
+
+### Wire Refresh Dashboard button (one-time)
+
+1. **Insert → Drawing** → label e.g. **Refresh Dashboard** → Save and Close.
+2. Click drawing → ⋮ → **Assign script** → `runRefreshDashboardCalcs`.
+3. Place on Dashboard or Data where you fix values.
+
 This build only creates the **aggregation tables** — you build the FIXED charts yourself
 against these ranges.
 
@@ -181,7 +226,10 @@ Apps Script cannot create Drawing buttons programmatically:
 - **Add Manual Row** — for sessions with no scrapable email (e.g. the 2020–2023 gap). Opens
   a form where you can enter the full set of metrics (date required; everything else
   optional and left blank if untouched). The row is tagged `Source = Manual`, is excluded
-  from dedupe/reflagging, and is kept ordered by date but never rewritten.
+  from dedupe/reflagging, and is kept ordered by date but never rewritten. Toast includes
+  “Dashboard data updated.” when the monthly band refreshes.
+- **Refresh Dashboard Calcs** — recomputes monthly band **A–S** after you edit date,
+  calories, splats, HR, or zone minutes directly on Data (also assignable to a Drawing).
 - **View Log** — opens the Log tab (timestamp, run type, scanned/added/skipped/flags/errors).
 
 Review anything with text in the **Status** column.

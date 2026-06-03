@@ -15,6 +15,7 @@ function onOpen() {
     .addItem('Full Scrape (all emails)', 'runFullScrape')
     .addSeparator()
     .addItem('Add Manual Row', 'addManualRow')
+    .addItem('Refresh Dashboard Calcs', 'runRefreshDashboardCalcs')
     .addSeparator()
     .addItem('Clear All Data', 'clearAllData')
     .addItem('Clear Email Data (keep Manual)', 'clearEmailData')
@@ -48,6 +49,13 @@ function viewLog() {
   var log = ss.getSheetByName(SHEETS.LOG);
   if (!log) { ensureSheets(); log = ss.getSheetByName(SHEETS.LOG); }
   ss.setActiveSheet(log);
+}
+
+/** Menu + button: refresh script-computed monthly band (A–S) after manual Data edits. */
+function runRefreshDashboardCalcs() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  refreshMonthlyBand_(ss);
+  toast('Monthly dashboard data updated.', 'OTF Scraper');
 }
 
 /** Menu action: jump to the Dash_Calc helper tab (source for FIXED charts). */

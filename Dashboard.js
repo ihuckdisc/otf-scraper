@@ -13,13 +13,10 @@
  *     they are unit-testable under Node, exactly like the COLUMNS formula()
  *     closures. QUERY clauses use colQueryRef_() (ColN); scorecards use A1 letters
  *     via colLetterForKey_(). Never hardcode column positions.
- *   - QUERY aggregates value columns only (count/sum/avg). Derived ratios (zone %,
- *     cal/active min) are NOT computed inside QUERY: Google's QUERY engine returns
- *     #N/A when several division expressions share a grouped select (a single
- *     division is fine; multiple together fail). Instead the monthly table emits
- *     raw zone-minute sums and the ratios are ARRAYFORMULA columns placed beside
- *     the spill (buildMonthlyDerivedFormulas_).
- *   - Only ensureDashCalcSheet_(ss) touches the Spreadsheet service.
+ *   - Monthly band (cols A–S) is script-computed: a continuous month spine with
+ *     pause months (zero classes) so FIXED over-time charts do not bridge gaps.
+ *     refreshMonthlyBand_ writes values via setValues; By Coach / By Studio remain QUERY.
+ *   - ensureDashCalcSheet_(ss) full init; refreshMonthlyBand_(ss) light refresh after ingest.
  *   - Idempotent: re-running Initialize Sheet clears Dash_Calc and rewrites the
  *     header labels + QUERY anchors. It never touches the user's Dashboard tab.
  *   - Horizontal layout: each table occupies its own column band with a wide gap
@@ -72,72 +69,162 @@ function queryWhereDateRows_() {
   return colQueryRef_('date') + " >= date '2010-01-01'";
 }
 
-/**
- * Monthly time series: one row per Year-Month. Groups on year(Col2)/month(Col2)
- * and filters with Col2 >= date '2010-01-01'. NO `order by` clause: in Google
- * QUERY, `order by year(Col2), month(Col2)` over a grouped query returns #N/A,
- * while grouped output is already returned in ascending group-key (chronological)
- * order.
- *
- * Selects ONLY plain aggregates (count/sum/avg). It deliberately emits the five
- * raw zone-minute sums rather than zone-% divisions: QUERY returns #N/A when
- * several division expressions share one grouped select. The ratios are
- * computed beside the spill by buildMonthlyDerivedFormulas_. Column layout of the
- * spill (queryCol = B): B year, C month, D count, E sum cal, F avg cal, G avg
- * splat, H avg HR, I-M zone-minute sums (grey/blue/green/orange/red).
- * @returns {string} QUERY formula
- */
-function buildMonthlyQuery_() {
-  var d = colQueryRef_('date');
-  var sel = [
-    'year(' + d + ')', 'month(' + d + ')', 'count(' + d + ')',
-    'sum(' + colQueryRef_('calories') + ')', 'avg(' + colQueryRef_('calories') + ')',
-    'avg(' + colQueryRef_('splatPoints') + ')', 'avg(' + colQueryRef_('avgHr') + ')',
-    'sum(' + colQueryRef_('zoneGrey') + ')', 'sum(' + colQueryRef_('zoneBlue') + ')',
-    'sum(' + colQueryRef_('zoneGreen') + ')', 'sum(' + colQueryRef_('zoneOrange') + ')',
-    'sum(' + colQueryRef_('zoneRed') + ')'
-  ];
-  return '=QUERY(' + dataBodyRange_() + ', "select ' + sel.join(', ')
-    + ' where ' + queryWhereDateRows_()
-    + ' group by year(' + d + '), month(' + d + ') '
-    + blankLabels_(sel) + '", 0)';
+/** @param {*} v @returns {number|null} */
+function dashNum_(v) {
+  if (v === '' || v == null) return null;
+  var n = typeof v === 'number' ? v : parseFloat(v);
+  return isNaN(n) ? null : n;
+}
+
+/** @returns {string} e.g. "2019-12" */
+function monthKey_(year, month) {
+  return year + '-' + (month < 10 ? '0' + month : String(month));
 }
 
 /**
- * ARRAYFORMULA ratio columns for the monthly spill. QUERY cannot host multiple
- * divisions, so Cal/Active-Min and each zone % are derived here from the raw
- * zone-minute sums. IFERROR collapses divide-by-zero (months with no zone data)
- * to "" and the year column gates empty rows.
- * @param {{year:string,totalCal:string,grey:string,blue:string,green:string,orange:string,red:string}} cols spill column letters
- * @param {number} bodyRow first body row of the spill
- * @returns {string[]} [calPerMin, grey%, blue%, green%, orange%, red%]
+ * Scan records for valid dates; return first/last class month (local midnight).
+ * @param {Object[]} records
+ * @returns {{first:Date, last:Date}|null}
  */
-function buildMonthlyDerivedFormulas_(cols, bodyRow) {
-  function rng(c) { return c + bodyRow + ':' + c; }
-  var total = '(' + rng(cols.grey) + '+' + rng(cols.blue) + '+' + rng(cols.green)
-    + '+' + rng(cols.orange) + '+' + rng(cols.red) + ')';
-  var present = rng(cols.year);
-  function ratio(numCol) {
-    return '=ARRAYFORMULA(IF(' + present + '="","",IFERROR('
-      + rng(numCol) + '/' + total + ',"")))';
+function firstLastClassMonth_(records) {
+  var first = null;
+  var last = null;
+  for (var i = 0; i < records.length; i++) {
+    var d = records[i].date;
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    d = toLocalMidnight(d);
+    if (!first || d < first) first = d;
+    if (!last || d > last) last = d;
   }
+  if (!first || !last) return null;
+  return { first: first, last: last };
+}
+
+/**
+ * Continuous month spine from first-of-month through last-of-month (inclusive).
+ * @param {Date} firstDate
+ * @param {Date} lastDate
+ * @returns {Array<{label:string, year:number, month:number}>}
+ */
+function buildMonthSpine_(firstDate, lastDate) {
+  var cur = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+  var end = new Date(lastDate.getFullYear(), lastDate.getMonth(), 1);
+  var spine = [];
+  while (cur.getTime() <= end.getTime()) {
+    var y = cur.getFullYear();
+    var m = cur.getMonth() + 1;
+    spine.push({ label: monthKey_(y, m), year: y, month: m });
+    cur = addCalendarMonths_(cur, 1);
+  }
+  return spine;
+}
+
+/** @returns {Object} empty monthly aggregate bucket */
+function emptyMonthlyAgg_() {
+  return {
+    classes: 0, sumCal: 0, sumSplats: 0, hrSum: 0, hrCount: 0,
+    zoneGrey: 0, zoneBlue: 0, zoneGreen: 0, zoneOrange: 0, zoneRed: 0
+  };
+}
+
+/**
+ * Single pass: bucket records by yyyy-mm. Avg HR uses sum/count of rows with HR only.
+ * @param {Object[]} records
+ * @returns {Object<string, Object>}
+ */
+function aggregateMonthlyFromRecords_(records) {
+  var map = {};
+  for (var i = 0; i < records.length; i++) {
+    var rec = records[i];
+    var d = rec.date;
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    d = toLocalMidnight(d);
+    var key = monthKey_(d.getFullYear(), d.getMonth() + 1);
+    if (!map[key]) map[key] = emptyMonthlyAgg_();
+    var agg = map[key];
+    agg.classes++;
+    var cal = dashNum_(rec.calories);
+    if (cal != null) agg.sumCal += cal;
+    var splat = dashNum_(rec.splatPoints);
+    if (splat != null) agg.sumSplats += splat;
+    var hr = dashNum_(rec.avgHr);
+    if (hr != null) { agg.hrSum += hr; agg.hrCount++; }
+    var zg = dashNum_(rec.zoneGrey); if (zg != null) agg.zoneGrey += zg;
+    var zb = dashNum_(rec.zoneBlue); if (zb != null) agg.zoneBlue += zb;
+    var zn = dashNum_(rec.zoneGreen); if (zn != null) agg.zoneGreen += zn;
+    var zo = dashNum_(rec.zoneOrange); if (zo != null) agg.zoneOrange += zo;
+    var zr = dashNum_(rec.zoneRed); if (zr != null) agg.zoneRed += zr;
+  }
+  return map;
+}
+
+/**
+ * Derived metrics for one month (F–H, N–S). Pause months: averages/ratios blank.
+ * @param {Object} agg
+ * @returns {{avgCal:*, avgSplat:*, avgHr:*, calPerMin:*, zonePcts:Array}}
+ */
+function computeDerivedMetrics_(agg) {
+  var blank = '';
+  if (!agg.classes) {
+    return { avgCal: blank, avgSplat: blank, avgHr: blank, calPerMin: blank,
+      zonePcts: [blank, blank, blank, blank, blank] };
+  }
+  var zoneTotal = agg.zoneGrey + agg.zoneBlue + agg.zoneGreen + agg.zoneOrange + agg.zoneRed;
+  var avgCal = agg.sumCal / agg.classes;
+  var avgSplat = agg.sumSplats / agg.classes;
+  var avgHr = agg.hrCount > 0 ? agg.hrSum / agg.hrCount : blank;
+  var calPerMin = zoneTotal > 0 ? agg.sumCal / zoneTotal : blank;
+  var zonePcts = zoneTotal > 0
+    ? [
+      agg.zoneGrey / zoneTotal, agg.zoneBlue / zoneTotal, agg.zoneGreen / zoneTotal,
+      agg.zoneOrange / zoneTotal, agg.zoneRed / zoneTotal
+    ]
+    : [blank, blank, blank, blank, blank];
+  return { avgCal: avgCal, avgSplat: avgSplat, avgHr: avgHr, calPerMin: calPerMin, zonePcts: zonePcts };
+}
+
+/**
+ * One monthly band row (19 columns A–S).
+ * @param {{label:string, year:number, month:number}} entry
+ * @param {Object} agg
+ * @returns {Array}
+ */
+function buildOneMonthlyRow_(entry, agg) {
+  var derived = computeDerivedMetrics_(agg);
+  var pause = !agg.classes;
   return [
-    ratio(cols.totalCal),
-    ratio(cols.grey), ratio(cols.blue), ratio(cols.green), ratio(cols.orange), ratio(cols.red)
+    entry.label,
+    entry.year,
+    entry.month,
+    pause ? 0 : agg.classes,
+    pause ? 0 : agg.sumCal,
+    derived.avgCal,
+    derived.avgSplat,
+    derived.avgHr,
+    pause ? 0 : agg.zoneGrey,
+    pause ? 0 : agg.zoneBlue,
+    pause ? 0 : agg.zoneGreen,
+    pause ? 0 : agg.zoneOrange,
+    pause ? 0 : agg.zoneRed,
+    derived.calPerMin,
+    derived.zonePcts[0], derived.zonePcts[1], derived.zonePcts[2],
+    derived.zonePcts[3], derived.zonePcts[4]
   ];
 }
 
 /**
- * ARRAYFORMULA yyyy-mm label from QUERY year (col B) and month (col C) spill.
- * @param {string} yearColLetter
- * @param {string} monthColLetter
- * @param {number} bodyRow
- * @returns {string}
+ * @param {Array<{label:string, year:number, month:number}>} spine
+ * @param {Object<string, Object>} aggMap
+ * @returns {Array[]}
  */
-function buildMonthLabelFormula_(yearColLetter, monthColLetter, bodyRow) {
-  var y = yearColLetter + bodyRow + ':' + yearColLetter;
-  var m = monthColLetter + bodyRow + ':' + monthColLetter;
-  return '=ARRAYFORMULA(IF(ISNUMBER(' + y + '),TEXT(DATE(' + y + ',' + m + ',1),"yyyy-mm"),""))';
+function buildMonthlyBandRows_(spine, aggMap) {
+  var rows = [];
+  for (var i = 0; i < spine.length; i++) {
+    var entry = spine[i];
+    var agg = aggMap[entry.label] || emptyMonthlyAgg_();
+    rows.push(buildOneMonthlyRow_(entry, agg));
+  }
+  return rows;
 }
 
 /**
@@ -202,7 +289,8 @@ function buildScorecards_() {
     { label: 'PR: Best Tread Pace', formula: minifsNonBlank_('treadAvgPace'), format: '[mm]:ss' },
     { label: 'PR: Max Elevation / Mile', formula: '=MAX(' + dashColRange_('_elevPerMile') + ')', format: '0.00' },
     { label: 'PR: Best 500m Split', formula: minifsNonBlank_('rowerBest500mSplit'), format: '[mm]:ss' },
-    { label: 'PR: Max Rower Avg Watts', formula: '=MAX(' + dashColRange_('rowerAvgWatts') + ')', format: '#,##0.0' }
+    { label: 'PR: Max Rower Avg Watts', formula: '=MAX(' + dashColRange_('rowerAvgWatts') + ')', format: '#,##0.0' },
+    { label: 'PR: Max Rower Watts', formula: '=MAX(' + dashColRange_('rowerMaxWatts') + ')', format: '#,##0' }
   ];
 }
 
@@ -217,14 +305,16 @@ var DASH_CALC_LAYOUT_ = {
   headerRow: 2,
   bodyRow: 3,
   spillRows: 1000,
-  title: 'Dash_Calc - slicer-immune QUERY tables that back the FIXED dashboard charts. '
-    + 'Do NOT attach slicers to this tab; build FIXED charts from these ranges. '
+  title: 'Dash_Calc - slicer-immune tables that back the FIXED dashboard charts. '
+    + 'Monthly band (A–S) is script-computed and auto-refreshes on ingest; '
+    + 'By Coach / By Studio use QUERY. Do NOT attach slicers to this tab. '
     + 'Rebuilt by OTF Scraper -> Initialize Sheet.',
   monthly: {
     name: 'Monthly time series',
     labelCol: 1,                 // A: yyyy-mm label
     labelHeader: 'Year-Month',
-    queryCol: 2,                 // B..M: raw QUERY aggregates (12 cols)
+    queryCol: 2,                 // B..M: value columns (script-written, not QUERY)
+    colCount: 19,                // A..S
     headers: [
       'Year', 'Month', 'Classes', 'Total Calories', 'Avg Calories', 'Avg Splat',
       'Avg HR', 'Grey Min', 'Blue Min', 'Green Min', 'Orange Min', 'Red Min'
@@ -264,6 +354,88 @@ var DASH_CALC_LAYOUT_ = {
  * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss
  * @returns {GoogleAppsScript.Spreadsheet.Sheet}
  */
+function monthlyHeadersPresent_(sheet, L, band) {
+  if (!sheet) return false;
+  var label = sheet.getRange(L.headerRow, band.labelCol).getValue();
+  return String(label).trim() === band.labelHeader;
+}
+
+/** Full init: headers + number formats for monthly band A–S (formats not reapplied on light refresh). */
+function writeMonthlyBandHeaders_(sheet, band, L) {
+  sheet.getRange(L.titleRow, band.queryCol).setNote(band.name);
+  var headers = [band.labelHeader].concat(band.headers).concat(band.derivedHeaders);
+  sheet.getRange(L.headerRow, band.labelCol, 1, band.colCount)
+    .setValues([headers]).setFontWeight('bold');
+
+  if (band.formats) {
+    for (var offsetStr in band.formats) {
+      if (!band.formats.hasOwnProperty(offsetStr)) continue;
+      var col = band.queryCol + parseInt(offsetStr, 10);
+      sheet.getRange(L.bodyRow, col, L.spillRows, 1).setNumberFormat(band.formats[offsetStr]);
+    }
+  }
+  for (var i = 0; i < band.derivedFormats.length; i++) {
+    var dcol = band.derivedCol + i;
+    sheet.getRange(L.bodyRow, dcol, L.spillRows, 1).setNumberFormat(band.derivedFormats[i]);
+  }
+}
+
+/**
+ * Write monthly body values and clear stale tail. GAS getRange(row, col, numRows, numCols).
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ * @param {Array[]} rows
+ */
+function writeMonthlyBandBody_(sheet, rows, band, L) {
+  var numRows = rows.length;
+  var numCols = band.colCount;
+
+  if (numRows > 0) {
+    // Third/fourth args are row/column counts, not end coordinates.
+    sheet.getRange(L.bodyRow, 1, numRows, numCols).setValues(rows);
+  } else {
+    sheet.getRange(L.bodyRow, 1, L.spillRows, numCols).clearContent();
+    return;
+  }
+
+  var tailStartRow = L.bodyRow + numRows;
+  var tailNumRows = L.spillRows - numRows;
+  if (tailNumRows > 0) {
+    sheet.getRange(tailStartRow, 1, tailNumRows, numCols).clearContent();
+  }
+}
+
+/**
+ * Light refresh: recompute monthly band A–S from Data. Falls back to full init if layout missing.
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss
+ */
+function refreshMonthlyBand_(ss) {
+  var startMs = Date.now();
+  var L = DASH_CALC_LAYOUT_;
+  var m = L.monthly;
+  var sheet = ss.getSheetByName(SHEETS.DASH_CALC);
+  if (!sheet || !monthlyHeadersPresent_(sheet, L, m)) {
+    ensureDashCalcSheet_(ss);
+    return;
+  }
+
+  var raw = readRecords();
+  var records = raw.map(function (r) { return r.record; });
+  var rows = [];
+  var bounds = firstLastClassMonth_(records);
+  if (bounds) {
+    var spine = buildMonthSpine_(bounds.first, bounds.last);
+    var aggMap = aggregateMonthlyFromRecords_(records);
+    rows = buildMonthlyBandRows_(spine, aggMap);
+  }
+
+  writeMonthlyBandBody_(sheet, rows, m, L);
+
+  if (typeof Logger !== 'undefined' && Logger.log) {
+    Logger.log('Dash_Calc monthly refresh: dataRows=' + records.length
+      + ', spineMonths=' + rows.length + ', elapsedMs=' + (Date.now() - startMs));
+  }
+}
+
 function ensureDashCalcSheet_(ss) {
   var L = DASH_CALC_LAYOUT_;
   var sheet = ss.getSheetByName(SHEETS.DASH_CALC) || ss.insertSheet(SHEETS.DASH_CALC);
@@ -273,45 +445,14 @@ function ensureDashCalcSheet_(ss) {
 
   sheet.getRange(L.titleRow, 1).setValue(L.title).setFontWeight('bold');
 
-  writeQueryBand_(sheet, L.monthly, buildMonthlyQuery_(), L);
+  writeMonthlyBandHeaders_(sheet, L.monthly, L);
   writeQueryBand_(sheet, L.byCoach, buildByCoachQuery_(), L);
   writeQueryBand_(sheet, L.byStudio, buildByStudioQuery_(), L);
   writeScorecards_(sheet, L.scorecards, buildScorecards_(), L);
 
-  var m = L.monthly;
-  var yearLetter = columnIndexToLetter_(m.queryCol);
-  var monthLetter = columnIndexToLetter_(m.queryCol + 1);
-  sheet.getRange(L.headerRow, m.labelCol).setValue(m.labelHeader).setFontWeight('bold');
-  sheet.getRange(L.bodyRow, m.labelCol)
-    .setFormula(buildMonthLabelFormula_(yearLetter, monthLetter, L.bodyRow));
-
-  writeMonthlyDerived_(sheet, m, L);
+  refreshMonthlyBand_(ss);
 
   return sheet;
-}
-
-/**
- * Write the monthly ratio columns (Cal/Active-Min and zone %) beside the spill.
- * Spill column letters are derived from queryCol so positions never hardcode.
- */
-function writeMonthlyDerived_(sheet, m, L) {
-  var qc = m.queryCol;
-  var cols = {
-    year: columnIndexToLetter_(qc),         // B
-    totalCal: columnIndexToLetter_(qc + 3), // E
-    grey: columnIndexToLetter_(qc + 7),     // I
-    blue: columnIndexToLetter_(qc + 8),     // J
-    green: columnIndexToLetter_(qc + 9),    // K
-    orange: columnIndexToLetter_(qc + 10),  // L
-    red: columnIndexToLetter_(qc + 11)      // M
-  };
-  var formulas = buildMonthlyDerivedFormulas_(cols, L.bodyRow);
-  for (var i = 0; i < formulas.length; i++) {
-    var col = m.derivedCol + i;
-    sheet.getRange(L.headerRow, col).setValue(m.derivedHeaders[i]).setFontWeight('bold');
-    sheet.getRange(L.bodyRow, col).setFormula(formulas[i]);
-    sheet.getRange(L.bodyRow, col, L.spillRows, 1).setNumberFormat(m.derivedFormats[i]);
-  }
 }
 
 /**
@@ -352,10 +493,13 @@ function writeScorecards_(sheet, band, cards, L) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    buildMonthlyQuery_: buildMonthlyQuery_,
-    buildMonthlyDerivedFormulas_: buildMonthlyDerivedFormulas_,
+    monthKey_: monthKey_,
+    firstLastClassMonth_: firstLastClassMonth_,
+    buildMonthSpine_: buildMonthSpine_,
+    aggregateMonthlyFromRecords_: aggregateMonthlyFromRecords_,
+    computeDerivedMetrics_: computeDerivedMetrics_,
+    buildMonthlyBandRows_: buildMonthlyBandRows_,
     blankLabels_: blankLabels_,
-    buildMonthLabelFormula_: buildMonthLabelFormula_,
     buildByCoachQuery_: buildByCoachQuery_,
     buildByStudioQuery_: buildByStudioQuery_,
     buildScorecards_: buildScorecards_,
