@@ -44,7 +44,7 @@ The template is **layout only**. You install the **script separately** so author
 ### Step 1 — Copy the dashboard layout template
 
 1. Open the template:  
-   **https://docs.google.com/spreadsheets/d/1TFLzWsZW90z2KTGOdj5pyVDa6giAIKlapsNSYnw0IDw/copy**  
+   **https://docs.google.com/spreadsheets/d/1OGeRMfHHzYOShJvv3GId_7X7XaB-kdzyr18XtjVQyGI/copy**  
    (or **File → Make a copy** from the published template link).
 2. Name the copy (e.g. “OTF Stats”).
 3. Confirm the copy has **no** Apps Script project attached yet (**Extensions → Apps Script** should be empty or only show a blank project you will replace).  
