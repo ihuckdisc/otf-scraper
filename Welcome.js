@@ -20,7 +20,7 @@ function buildWelcomeContent_() {
     ['Script version: ' + SCRIPT_VERSION],
     [''],
     ['Do this next'],
-    ['If the Data tab has no class rows: OTF Scraper menu → Full Scrape. When Google asks, allow access for this sheet’s script (your copy).'],
+    ['If the Data tab has no class rows: OTF Scraper menu → Full Scrape. Google may say the app is unverified — Advanced → Go to OTF Email Scraper (unsafe) → Allow, then click Full Scrape again.'],
     ['If Data already has classes: after new OTbeat emails, use Update (since last class). Do not Full Scrape every time.'],
     ['Done looks like: rows on Data with Date, Calories, and Splat Points filled.'],
     ['Dashboard charts fill in after Full Scrape (empty charts before that are normal).'],

@@ -16,7 +16,8 @@ All notable user-facing script and doc changes.
 
 **After install / paste:** reload → if Welcome version missing or behind, **Initialize Sheet** once → confirm Welcome shows `1.5.5` → **Full Scrape** (first time) or **Update**.
 
-**Easy template URL:** replace `REPLACE_WITH_EASY_SHEET_ID` in USER_GUIDE once the public `/copy` link is published (see owner runbook).
+**Easy template URL:** https://docs.google.com/spreadsheets/d/1w4b-6xZs3Kr0JXqa9X62HAJeLUKYnnnRzOzmexyx71g/copy  
+Renaming the Drive file (e.g. drop “SPIKE”) does **not** change this URL.
 
 **Maintainers — files:**
 

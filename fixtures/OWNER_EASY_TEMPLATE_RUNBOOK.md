@@ -37,21 +37,16 @@ Version truth lives on **Welcome → Script version** and `CHANGELOG.md`.
    - Confirm Welcome shows the current `SCRIPT_VERSION` and the “charts fill in after Full Scrape” line.  
    - Log empty / clean.
 
-6. **Drawing buttons (spike outcome)**  
-   Make a **test copy** of this master as a fake member.  
-   - If Update / Full Scrape drawings work → leave them.  
-   - If dead → remove drawings from the **master** (or ignore them); docs already prefer the menu.
+6. **Drawing buttons**  
+   Spike (2026-08-30): Update / Full Scrape drawings **survived** Make a copy — leave them on the master.
 
 7. **Share**  
    Share master: **Anyone with the link → Viewer**. Do **not** grant Editor. Do **not** disable download/copy.
 
-8. **Public URL**  
-   Copy:
-   `https://docs.google.com/spreadsheets/d/<SHEET_ID>/copy`  
-   Send to the maintainer / agent to replace `REPLACE_WITH_EASY_SHEET_ID` in:
-   - `fixtures/USER_GUIDE.md`
-   - `README.md` (if linked)
-   - Welcome Help (only if we add the Easy link there later)
+8. **Public URL (published)**  
+   https://docs.google.com/spreadsheets/d/1w4b-6xZs3Kr0JXqa9X62HAJeLUKYnnnRzOzmexyx71g/copy  
+
+   **Rename the Drive file anytime** (drop “SPIKE”, use `OTF Scraper — Easy install`). The spreadsheet ID and `/copy` URL stay the same. Do not create a new copy just to rename.
 
 9. **Member simulation**  
    Incognito or second account: open `/copy` → Make a copy → reload → menu → Full Scrape → Allow on **their** copy → Data rows appear.

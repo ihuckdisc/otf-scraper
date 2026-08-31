@@ -202,7 +202,7 @@ View chart data (Dash_Calc)**.
 
 ## Setup
 
-**Civilians:** follow `fixtures/USER_GUIDE.md` (PhoenixBunny-style paste path). Summary for developers below.
+**Civilians:** follow `fixtures/USER_GUIDE.md` (Easy install first; paste appendix if needed). Summary for developers below.
 
 ### Option A — develop locally with clasp (recommended for contributors)
 1. Create a new Google Sheet → **Extensions → Apps Script** to create the bound project.

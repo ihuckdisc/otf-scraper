@@ -419,6 +419,7 @@ function runTests() {
   var welcomeText = welcomeRows.map(function (r) { return r[0]; }).join('\n');
   c.truthy('welcome has Do this next', welcomeText.indexOf('Do this next') !== -1);
   c.truthy('welcome has charts-after-scrape line', welcomeText.indexOf('charts fill in after Full Scrape') !== -1);
+  c.truthy('welcome mentions unverified OAuth', welcomeText.indexOf('unverified') !== -1);
   c.truthy('welcome has Help link', welcomeText.indexOf('USER_GUIDE.md') !== -1);
   c.falsy('welcome has no timeout novel', welcomeText.indexOf('If a run times out') !== -1);
   c.falsy('welcome has no upgrade novel', welcomeText.indexOf('Upgrade from an older paste') !== -1);

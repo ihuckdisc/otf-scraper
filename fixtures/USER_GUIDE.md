@@ -25,15 +25,17 @@ Get your Orangetheory performance emails into **your own** Google Sheet: one row
 ## 1. Easy install (recommended)
 
 1. Open this link and click **Make a copy** (sign in with the Gmail that gets OTbeat mail):  
-   **https://docs.google.com/spreadsheets/d/REPLACE_WITH_EASY_SHEET_ID/copy**
+   **https://docs.google.com/spreadsheets/d/1w4b-6xZs3Kr0JXqa9X62HAJeLUKYnnnRzOzmexyx71g/copy**
 2. Name your copy (e.g. “OTF Stats”).
 3. Reload the spreadsheet. Confirm menu **OTF Scraper**.
 4. Check **Welcome → Script version** against the latest entry in [CHANGELOG.md](https://github.com/ihuckdisc/otf-scraper/blob/main/CHANGELOG.md). If the version is missing or behind, run **OTF Scraper → Initialize Sheet** once.
-5. **OTF Scraper → Full Scrape**. When Google asks, allow access for **this sheet’s** script (your copy). Project name should look like **OTF Email Scraper**.
+5. **OTF Scraper → Full Scrape** (or the Full Scrape button). Google will likely show **Google hasn’t verified this app** — that is normal for a personal script.
+6. Click **Advanced** → **Go to OTF Email Scraper (unsafe)** → check the permissions → **Continue** / **Allow**. You are authorizing **your copy**, not a public company app.
+7. Click **Full Scrape** (or Update) **again**. The first click only opened the permission screens; the scrape runs after you allow.
 
 **Done when** Data has class rows. Charts fill in after Full Scrape — empty charts before that are normal. After that, use **Update** for new emails.
 
-Prefer the menu (**OTF Scraper**) over on-sheet Drawing buttons. If a drawing button does nothing, use the menu (or re-assign the script — see Troubleshooting).
+Menu and on-sheet buttons both work on a fresh Easy copy. If a drawing button ever does nothing, use the **OTF Scraper** menu (or re-assign the script — see Troubleshooting).
 
 > **Older layout-only link** (shell without script — not for new installs):  
 > https://docs.google.com/spreadsheets/d/1OGeRMfHHzYOShJvv3GId_7X7XaB-kdzyr18XtjVQyGI/copy  
@@ -136,7 +138,13 @@ Do not paste old columns into this Data tab. New sheet + Easy install (or paste 
 
 ### “Google hasn’t verified this app”
 
-Must be **your** project (**Extensions → Apps Script** on your copy). Use Advanced/(unsafe) or Continue → Allow. Wrong project → Overview → Delete project → reinstall from Easy link or paste appendix.
+Normal on first Full Scrape / Update. Developer email on the warning is whoever published the template (not Google “verifying” OrangeTheory).
+
+1. **Advanced** → **Go to OTF Email Scraper (unsafe)** (wording varies; look for the project name).
+2. Check Gmail + Sheets + dialogs → **Continue** / **Allow**.
+3. Click **Full Scrape** or **Update** again — the first click only started authorization.
+
+Must be **your** copy’s project (**Extensions → Apps Script** on your sheet). Wrong project → Overview → Delete project → reinstall from Easy link or paste appendix.
 
 ### When to Initialize Sheet
 
@@ -230,7 +238,7 @@ Reload → **Initialize Sheet** → Welcome version matches CHANGELOG → **Full
 
 ### Google permission screen
 
-Personal scripts often show **Google hasn’t verified this app**. Use **Advanced → Go to [project] (unsafe) → Allow**, or **Continue** → **Allow**. You are authorizing **your** sheet’s script.
+Personal scripts often show **Google hasn’t verified this app**. Use **Advanced → Go to OTF Email Scraper (unsafe) → Allow**, or **Continue** → **Allow**. Then click Full Scrape / Update again. You are authorizing **your** sheet’s script.
 
 ---
 
