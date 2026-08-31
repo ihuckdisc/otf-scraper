@@ -8,7 +8,7 @@
  */
 
 /** Row indices (1-based) that receive bold section-heading style. */
-var WELCOME_HEADING_ROWS_ = [4, 9, 12, 15];
+var WELCOME_HEADING_ROWS_ = [4, 10, 13, 16];
 
 /**
  * Build the Welcome tab body as a single-column 2D array.
@@ -23,6 +23,7 @@ function buildWelcomeContent_() {
     ['If the Data tab has no class rows: OTF Scraper menu → Full Scrape. When Google asks, allow access for this sheet’s script (your copy).'],
     ['If Data already has classes: after new OTbeat emails, use Update (since last class). Do not Full Scrape every time.'],
     ['Done looks like: rows on Data with Date, Calories, and Splat Points filled.'],
+    ['Dashboard charts fill in after Full Scrape (empty charts before that are normal).'],
     [''],
     ['Skip these for now'],
     ['Clear All Data, Clear Email Data, and Reset Sheet — only use them when you mean to delete class rows.'],

@@ -182,7 +182,7 @@ function runTests() {
 
   // --- 5e. Derived formula columns (v1.2.0) -----------------------------
   c.eq('schema column count', COLUMNS.length, 54);
-  c.eq('SCRIPT_VERSION', SCRIPT_VERSION, '1.5.4');
+  c.eq('SCRIPT_VERSION', SCRIPT_VERSION, '1.5.5');
 
   var peakMinusCol = findColumn_('_peakMinusAvgHr');
   c.truthy('schema includes _peakMinusAvgHr', !!peakMinusCol);
@@ -418,6 +418,7 @@ function runTests() {
   c.truthy('welcome includes version', String(welcomeRows[1][0]).indexOf(SCRIPT_VERSION) !== -1);
   var welcomeText = welcomeRows.map(function (r) { return r[0]; }).join('\n');
   c.truthy('welcome has Do this next', welcomeText.indexOf('Do this next') !== -1);
+  c.truthy('welcome has charts-after-scrape line', welcomeText.indexOf('charts fill in after Full Scrape') !== -1);
   c.truthy('welcome has Help link', welcomeText.indexOf('USER_GUIDE.md') !== -1);
   c.falsy('welcome has no timeout novel', welcomeText.indexOf('If a run times out') !== -1);
   c.falsy('welcome has no upgrade novel', welcomeText.indexOf('Upgrade from an older paste') !== -1);

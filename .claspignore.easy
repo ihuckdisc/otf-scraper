@@ -1,0 +1,21 @@
+# Civilian Easy-template push: same as .claspignore but omit Tests/Fixtures.
+**/**
+!appsscript.json
+!ManualRowForm.html
+!Config.js
+!Normalize.js
+!Menu.js
+!Welcome.js
+!Dashboard.js
+!SheetIO.js
+!Ingest.js
+!Validate.js
+!Log.js
+!parsers/Tokens.js
+!parsers/Detect.js
+!parsers/Parse.js
+!parsers/sections/Header.js
+!parsers/sections/Summary.js
+!parsers/sections/Zones.js
+!parsers/sections/Treadmill.js
+!parsers/sections/Rower.js

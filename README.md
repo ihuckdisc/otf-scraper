@@ -1,6 +1,8 @@
 # OTF Email Scraper
 
-**End users / install:** start with [`fixtures/USER_GUIDE.md`](fixtures/USER_GUIDE.md). Do not start with this README.
+**End users / install:** start with [`fixtures/USER_GUIDE.md`](fixtures/USER_GUIDE.md) (**Easy install** = Make a copy of the template that already includes the script). Do not start with this README.
+
+**Maintainers (Easy template publish):** [`fixtures/OWNER_EASY_TEMPLATE_RUNBOOK.md`](fixtures/OWNER_EASY_TEMPLATE_RUNBOOK.md) and `./dev/pushEasy.sh`.
 
 A self-contained **Google Apps Script** tool, bound to a Google Sheet, that scrapes
 OrangeTheory performance emails from `OTbeatReport@orangetheoryfitness.com` and writes
@@ -172,10 +174,10 @@ unless you also changed calories/zones/date.
 `avg()` ignored blank calories/splats on some rows; values match when every class in the
 month has those fields populated.
 
-### Migration (older builds → 1.5.4)
+### Migration (older builds → 1.5.5)
 
-1. `clasp push` (or replace all required files) and hard-reload the spreadsheet.
-2. Run **Initialize Sheet** once (Welcome must show **1.5.4**). Do **not** run Update
+1. `clasp push` (or Easy `./dev/pushEasy.sh`, or replace all civilian files) and hard-reload the spreadsheet.
+2. Run **Initialize Sheet** once (Welcome must show **1.5.5**). Do **not** run Update
    before Initialize when CHANGELOG says Initialize is required.
 3. Normal workflow: Update / Add Manual Row only (no Initialize per scrape).
 
@@ -211,10 +213,14 @@ View chart data (Dash_Calc)**.
    `dev/` are excluded).
 
 ### Option B — paste into the Apps Script editor
-Prefer the User Guide checklist (Copy button, names without `.js` / `.html` suffixes, no
-parser folders). Create one script file per runtime module and paste `appsscript.json`
-into the manifest. Do not put `Tests.js` in the civilian required set unless you also
-generate `Fixtures.js`.
+Prefer the User Guide **Easy install** first. Paste appendix: checklist (Copy button,
+names without `.js` / `.html` suffixes, no parser folders). Create one script file per
+runtime module and paste `appsscript.json` into the manifest. Do not put `Tests.js` in
+the civilian required set unless you also generate `Fixtures.js`.
+
+### Option C — Easy template (maintainers)
+Duplicate the layout sheet, set Script ID in local `.clasp.easy.json`, run
+`./dev/pushEasy.sh`, then follow `fixtures/OWNER_EASY_TEMPLATE_RUNBOOK.md`.
 
 ### First run / authorization
 1. Reload the Sheet → an **OTF Scraper** menu appears.
