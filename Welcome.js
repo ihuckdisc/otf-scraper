@@ -1,12 +1,14 @@
 /**
- * Welcome.js - in-sheet README and script version display.
+ * Welcome.js - in-sheet next-action guide and script version display.
  *
  * Content is rewritten when ensureSheets() runs (Initialize Sheet). Manual edits
  * on the Welcome tab will be overwritten.
+ *
+ * Contract: version + next action + skip Clear/Reset + Help. No full runbooks.
  */
 
 /** Row indices (1-based) that receive bold section-heading style. */
-var WELCOME_HEADING_ROWS_ = [4, 7, 11, 18];
+var WELCOME_HEADING_ROWS_ = [4, 9, 12, 15];
 
 /**
  * Build the Welcome tab body as a single-column 2D array.
@@ -17,24 +19,20 @@ function buildWelcomeContent_() {
     ['OTF Email Scraper'],
     ['Script version: ' + SCRIPT_VERSION],
     [''],
-    ['About'],
-    ['Scrapes OrangeTheory performance emails from ' + SENDER + ' and writes one row per workout to the Data tab. This script only ingests data.'],
+    ['Do this next'],
+    ['If the Data tab has no class rows: OTF Scraper menu → Full Scrape. When Google asks, allow access for this sheet’s script (your copy).'],
+    ['If Data already has classes: after new OTbeat emails, use Update (since last class). Do not Full Scrape every time.'],
+    ['Done looks like: rows on Data with Date, Calories, and Splat Points filled.'],
     [''],
-    ['First-time setup'],
-    ['1. Reload the sheet. Use the OTF Scraper menu → Initialize Sheet (creates Welcome, Data, and Log tabs).'],
-    ['2. Run Update or Full Scrape once and approve OAuth (Gmail read-only, this spreadsheet only).'],
+    ['Skip these for now'],
+    ['Clear All Data, Clear Email Data, and Reset Sheet — only use them when you mean to delete class rows.'],
     [''],
-    ['Regular use'],
-    ['• Update (since last class) — fast sync for new emails since your latest Email class.'],
-    ['• Full Scrape (all emails) — scan all sender mail for anything missing; use for first import or after a long gap.'],
-    ['• Add Manual Row — enter workouts with no scrapable email (e.g. 2020–2023 gap); tagged Source = Manual.'],
-    ['• View Log — scrape history (scanned, added, skipped, flags, errors).'],
-    ['• Review any row with text in the Status column.'],
+    ['Stuck?'],
+    ['OTF Scraper → View Log, then open the User Guide troubleshooting section (link below). Do not mash Update or Full Scrape again if a run failed.'],
     [''],
-    ['Maintenance (menu)'],
-    ['• Clear Email Data — removes Email rows; keeps Manual rows.'],
-    ['• Clear All Data — deletes every class row.'],
-    ['• Reset Sheet — clears all class rows and Log history.'],
+    ['Help'],
+    ['User Guide (install + troubleshooting): https://github.com/ihuckdisc/otf-scraper/blob/main/fixtures/USER_GUIDE.md'],
+    ['How to read charts: https://github.com/ihuckdisc/otf-scraper/blob/main/fixtures/DASHBOARD_REFERENCE.md'],
   ];
 }
 

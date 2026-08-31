@@ -182,7 +182,7 @@ function runTests() {
 
   // --- 5e. Derived formula columns (v1.2.0) -----------------------------
   c.eq('schema column count', COLUMNS.length, 54);
-  c.eq('SCRIPT_VERSION', SCRIPT_VERSION, '1.5.2');
+  c.eq('SCRIPT_VERSION', SCRIPT_VERSION, '1.5.4');
 
   var peakMinusCol = findColumn_('_peakMinusAvgHr');
   c.truthy('schema includes _peakMinusAvgHr', !!peakMinusCol);
@@ -397,21 +397,31 @@ function runTests() {
   c.falsy('by-studio query avoids _calPerActiveMin', studioQuery.indexOf('_calPerActiveMin') !== -1);
 
   var cards = buildScorecards_();
-  c.eq('scorecards count', cards.length, 12);
+  c.eq('scorecards count', cards.length, 18);
   var cardFormulas = cards.map(function (k) { return k.formula; }).join(' | ');
   c.truthy('scorecards include a MINIFS PR', cardFormulas.indexOf('MINIFS(') !== -1);
   c.truthy('scorecards reference Data column', cardFormulas.indexOf(SHEETS.DATA + '!') !== -1);
+  c.truthy('scorecards include YTD Classes', cards.some(function (k) { return k.label === 'YTD Classes'; }));
+  c.truthy('scorecards include MTD Classes', cards.some(function (k) { return k.label === 'MTD Classes'; }));
+  c.truthy('YTD uses COUNTIFS', cardFormulas.indexOf('COUNTIFS(') !== -1);
+  c.truthy('YTD/MTD use TODAY year/month', cardFormulas.indexOf('YEAR(TODAY())') !== -1);
   var maxWattsCol = colLetterForKey_('rowerMaxWatts');
-  c.truthy('scorecards last is max rower watts', cards[11].label.indexOf('Max Rower Watts') !== -1
-    && cards[11].label.indexOf('Avg') === -1);
+  c.truthy('scorecards last is max rower watts', cards[17].label.indexOf('Max Rower Watts') !== -1
+    && cards[17].label.indexOf('Avg') === -1);
   c.truthy('scorecards max rower watts uses rowerMaxWatts col',
-    cards[11].formula.indexOf(SHEETS.DATA + '!' + maxWattsCol + ':' + maxWattsCol) !== -1);
+    cards[17].formula.indexOf(SHEETS.DATA + '!' + maxWattsCol + ':' + maxWattsCol) !== -1);
 
   // --- 7. Welcome / version ---------------------------------------------
   c.truthy('SCRIPT_VERSION set', SCRIPT_VERSION && String(SCRIPT_VERSION).trim());
   var welcomeRows = buildWelcomeContent_();
   c.truthy('welcome content non-empty', welcomeRows.length > 0);
   c.truthy('welcome includes version', String(welcomeRows[1][0]).indexOf(SCRIPT_VERSION) !== -1);
+  var welcomeText = welcomeRows.map(function (r) { return r[0]; }).join('\n');
+  c.truthy('welcome has Do this next', welcomeText.indexOf('Do this next') !== -1);
+  c.truthy('welcome has Help link', welcomeText.indexOf('USER_GUIDE.md') !== -1);
+  c.falsy('welcome has no timeout novel', welcomeText.indexOf('If a run times out') !== -1);
+  c.falsy('welcome has no upgrade novel', welcomeText.indexOf('Upgrade from an older paste') !== -1);
+  c.falsy('welcome never says Config.js', welcomeText.indexOf('Config.js') !== -1);
 
   // --- Summary -----------------------------------------------------------
   tlog_('OTF Scraper tests: ' + c.passed + ' passed, ' + c.failed + ' failed.');

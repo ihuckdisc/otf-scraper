@@ -5,7 +5,7 @@
  * exposed as plain top-level functions (runUpdate / runFullScrape, defined in
  * Ingest.js) so they can be wired to inserted Drawing buttons. Apps Script
  * cannot create Drawing buttons programmatically, so that wiring is a one-time
- * manual step documented in README.md.
+ * manual step documented in fixtures/USER_GUIDE.md.
  */
 
 function onOpen() {
@@ -17,22 +17,26 @@ function onOpen() {
     .addItem('Add Manual Row', 'addManualRow')
     .addItem('Refresh Dashboard Calcs', 'runRefreshDashboardCalcs')
     .addSeparator()
-    .addItem('Clear All Data', 'clearAllData')
-    .addItem('Clear Email Data (keep Manual)', 'clearEmailData')
-    .addSeparator()
-    .addItem('Reset Sheet (delete all data + logs)', 'resetSheet')
-    .addSeparator()
     .addItem('Initialize Sheet', 'initializeSheet')
     .addItem('View Welcome', 'viewWelcome')
     .addItem('View Log', 'viewLog')
-    .addItem('View Dashboard Data', 'viewDashCalc')
+    .addItem('View chart data (Dash_Calc)', 'viewDashCalc')
+    .addSeparator()
+    .addItem('Clear All Data', 'clearAllData')
+    .addItem('Clear Email Data (keep Manual)', 'clearEmailData')
+    .addItem('Reset Sheet (delete all data + logs)', 'resetSheet')
     .addToUi();
 }
 
-/** Menu action: (re)build Welcome, Data, and Log tabs. Idempotent. */
+/** Menu action: (re)build Welcome, Data, Log, and Dash_Calc. Idempotent. */
 function initializeSheet() {
   ensureSheets();
-  toast('Sheet initialized: Welcome, Data, and Log tabs ready.', 'OTF Scraper');
+  var data = getDataSheet_();
+  var hasRows = data && data.getLastRow() >= 2;
+  var next = hasRows
+    ? 'Ready. Use Update after new class emails.'
+    : 'Next: OTF Scraper → Full Scrape (first import).';
+  toast('Sheet initialized (v' + SCRIPT_VERSION + '). ' + next, 'OTF Scraper');
 }
 
 /** Menu action: jump to the Welcome tab. */

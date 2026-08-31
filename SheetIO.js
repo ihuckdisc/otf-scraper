@@ -2,8 +2,9 @@
  * SheetIO.js - all spreadsheet reads/writes.
  *
  * Responsibilities:
- *   - ensureSheets(): idempotent bootstrap of the Welcome, Data, and Log tabs,
- *     freeze, number/date formats, formula columns, hidden helper column).
+ *   - ensureSheets(): full bootstrap (Initialize / clear / reset) including
+ *     Dash_Calc rebuild and formula restamp on Data.
+ *   - ensureSheetsForScrape_(): missing-tabs-only path for Update / Full Scrape.
  *   - readRecords(): read existing rows back into record objects for dedupe and
  *     "better data" comparison.
  *   - insertRecordsAtTop() + sortByDateDesc(): newest-first insertion that keeps
@@ -142,6 +143,27 @@ function ensureSheets() {
   return data;
 }
 
+/**
+ * Lightweight bootstrap for Update / Full Scrape. Creates missing tabs only —
+ * never clears Dash_Calc, never restamps all formula columns, never formats the
+ * unused grid. First-time sheets (no Data tab) fall through to ensureSheets().
+ * @returns {GoogleAppsScript.Spreadsheet.Sheet} Data sheet
+ */
+function ensureSheetsForScrape_() {
+  var ss = getSpreadsheet_();
+  var data = ss.getSheetByName(SHEETS.DATA);
+  if (!data) return ensureSheets();
+
+  if (!ss.getSheetByName(SHEETS.LOG)) {
+    var log = ss.insertSheet(SHEETS.LOG);
+    log.getRange(1, 1, 1, LOG_COLUMNS.length).setValues([LOG_COLUMNS]).setFontWeight('bold');
+    log.setFrozenRows(1);
+  }
+  if (!ss.getSheetByName(SHEETS.WELCOME)) ensureWelcomeSheet_(ss);
+  if (!ss.getSheetByName(SHEETS.DASH_CALC)) ensureDashCalcSheet_(ss);
+  return data;
+}
+
 /** Write the positional formulas into every formula column for all data rows. */
 function stampFormulaColumns_(sheet) {
   var lastRow = sheet.getLastRow();
@@ -201,24 +223,23 @@ function recordToRowArray_(record) {
 /**
  * Insert new records at the top (newest-first), then re-sort the whole data
  * range by Date descending. Manual rows keep their content and are reordered by
- * date along with everything else.
+ * date along with everything else. Formats only the inserted block (formulas
+ * arrive via setValues); does not restamp the whole Data tab.
  * @param {Object[]} records
  * @returns {{refreshed:boolean}}
  */
 function insertRecordsAtTop(records) {
   if (!records || !records.length) return { refreshed: false };
   var ss = getSpreadsheet_();
-  var sheet = ensureDataSheets_(ss);
+  var sheet = getDataSheet_() || ensureDataSheets_(ss);
   var meta = getColumnMeta();
 
   sheet.insertRowsBefore(2, records.length);
   var rows = records.map(recordToRowArray_);
   sheet.getRange(2, 1, rows.length, meta.count).setValues(rows);
+  formatInsertedRows_(sheet, 2, records.length);
 
   sortByDateDesc();
-  stampFormulaColumns_(sheet);
-  reapplyFormats_(sheet);
-
   refreshMonthlyBand_(ss);
   return { refreshed: true };
 }
@@ -233,7 +254,21 @@ function sortByDateDesc() {
        .sort({ column: meta.byKey.date, ascending: false });
 }
 
-/** Re-apply number/date formats to the current data range. */
+/**
+ * Apply number/date formats to a contiguous block of data rows only.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ * @param {number} startRow 1-based
+ * @param {number} numRows
+ */
+function formatInsertedRows_(sheet, startRow, numRows) {
+  if (numRows < 1) return;
+  for (var i = 0; i < COLUMNS.length; i++) {
+    var c = COLUMNS[i];
+    if (c.format) sheet.getRange(startRow, i + 1, numRows, 1).setNumberFormat(c.format);
+  }
+}
+
+/** Re-apply number/date formats to the current data range (Initialize / repair). */
 function reapplyFormats_(sheet) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return;

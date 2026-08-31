@@ -1,0 +1,53 @@
+# Changelog
+
+All notable user-facing script and doc changes.
+
+**Members:** use the **Initialize** line and the **After paste** steps. Treat upgrades as **all required install files** (User Guide checklist) unless a release says otherwise.
+
+**Maintainers:** file lists below name GitHub paths (e.g. `Config.js`). In Apps Script those files are named without `.js` (e.g. `Config`).
+
+---
+
+## 1.5.4 — 2026-08-30
+
+**Initialize:** yes (Welcome rewrite).
+
+**For members — why:** Welcome is shorter (next action + Help only). Troubleshooting lives in the User Guide. Menu item for the chart helper is clearer. Same scrape timeout fix as 1.5.3.
+
+**After paste:** reload sheet → **Initialize Sheet** once → confirm Welcome shows `1.5.4` → use **Update**.
+
+**Maintainers — files:**
+
+- `Config.js` (version)
+- `Welcome.js`
+- `Menu.js`
+- `Tests.js` (optional; developers)
+- Docs: `fixtures/USER_GUIDE.md`, `fixtures/DASHBOARD_REFERENCE.md`, `README.md`, `CHANGELOG.md`
+
+---
+
+## 1.5.3 — 2026-08-30
+
+**Initialize:** yes (Welcome + Dash_Calc scorecard rows change).
+
+**For members — why:** Update / Full Scrape no longer rebuild the whole chart-helper tab or restamp all Data rows on every run (fixes Spreadsheets timeouts after first import). YTD/MTD scorecards added.
+
+**After paste:** reload → **Initialize Sheet** once → Welcome shows `1.5.3` → **Update** (do not Full Scrape just to “refresh”). Prefer **1.5.4+** if available (docs cleanup on top of this fix).
+
+**Maintainers — files (all recommended):**
+
+- `Config.js` (version)
+- `Ingest.js`
+- `SheetIO.js`
+- `Log.js`
+- `Welcome.js`
+- `Dashboard.js`
+- `Menu.js`
+- `Tests.js` (optional)
+- Docs: `fixtures/USER_GUIDE.md`, `fixtures/DASHBOARD_REFERENCE.md`, `README.md`, `CHANGELOG.md`
+
+---
+
+## 1.5.2 — prior
+
+Dash_Calc QUERY refresh fix; expanded manual install checklist in USER_GUIDE.

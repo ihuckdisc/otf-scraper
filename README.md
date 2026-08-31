@@ -1,11 +1,16 @@
 # OTF Email Scraper
 
+**End users / install:** start with [`fixtures/USER_GUIDE.md`](fixtures/USER_GUIDE.md). Do not start with this README.
+
 A self-contained **Google Apps Script** tool, bound to a Google Sheet, that scrapes
 OrangeTheory performance emails from `OTbeatReport@orangetheoryfitness.com` and writes
 one clean, correctly-typed row per workout into a **Data** tab.
 
-The script is **ingestion only**. You build the dashboard natively in Google Sheets
-(charts, slicers) against the Data tab.
+The script ingests email data and maintains a **Dash_Calc** helper tab for FIXED
+dashboard charts. Civilian dashboard layout lives in the published template; chart
+rebuild details are in `fixtures/DASHBOARD_REFERENCE.md`.
+
+See **CHANGELOG.md** for version, file lists, and whether Initialize is required.
 
 ---
 
@@ -76,7 +81,8 @@ class) is parsed correctly with no code change. See `parsers/`.
 | `Menu.js` | `onOpen()` custom menu + button entry points. |
 | `Fixtures.js` | Generated: embedded email bodies for in-editor tests. |
 | `Tests.js` | In-editor test runner (`runTests`). |
-| `fixtures/` | `.eml` / `OTFData.csv` and dev specs (`CHART_BUILD_SPEC.md`, `DEPLOY_SMOKE.md`, `REDDIT_POST.md`) local only; distribution docs (`USER_GUIDE.md`, `DASHBOARD_REFERENCE.md`) are in git. Not pushed to GAS. |
+| `fixtures/` | `.eml` / `OTFData.csv` and local-only specs; distribution docs (`USER_GUIDE.md`, `DASHBOARD_REFERENCE.md`) are in git. Not pushed to GAS. |
+| `CHANGELOG.md` | Version, file list, Initialize yes/no for paste upgrades. |
 | `dev/` | Node-only dev harness (parser verification + fixture generation; not pushed to GAS). |
 
 ### Data tab columns (left → right, 54 total)
@@ -98,9 +104,13 @@ Derived columns worth charting: zone % columns sum to 100% of active minutes (st
 
 ## Welcome tab (in the sheet)
 
-After **Initialize Sheet**, the **Welcome** tab (leftmost) shows the current **script version** and a brief setup/usage guide. Day-to-day instructions live there; this repo README is the full developer reference.
+After **Initialize Sheet**, the **Welcome** tab (leftmost) shows the current **script version**,
+next-action copy, and Help links. Troubleshooting lives in `fixtures/USER_GUIDE.md`.
 
-**Releasing script changes:** bump `SCRIPT_VERSION` in `Config.js` → `clasp push` → reload the sheet → **OTF Scraper → Initialize Sheet** to refresh Welcome (content is script-owned and overwrites manual edits on that tab).
+**Releasing script changes:** bump `SCRIPT_VERSION` in `Config.js` → update `CHANGELOG.md`
+(file list + Initialize yes/no) → `clasp push` → reload the sheet → **OTF Scraper →
+Initialize Sheet** when CHANGELOG says so (content on Welcome is script-owned and
+overwrites manual edits on that tab).
 
 ---
 
@@ -119,27 +129,30 @@ four slicer-immune aggregation tables laid out in separate column bands:
 - **Monthly time series (A–S)** — **script-computed** continuous month spine (first class
   month through last class month), including pause months with zero classes so FIXED
   over-time charts do not bridge gaps. Refreshed automatically after **Update**, **Full
-  Scrape**, and **Add Manual Row**; use **Refresh Dashboard Calcs** after manual edits to
-  monthly driver fields on Data (see below). Tread/rower/steps are not in this band.
+  Scrape**, and **Add Manual Row** when rows are added; use **Refresh Dashboard Calcs**
+  after manual edits to monthly driver fields on Data (see below). Tread/rower/steps are
+  not in this band.
 - **By Coach** — QUERY: classes, avg calories, avg splat, avg cal/active-min per coach.
 - **By Studio** — QUERY: classes, avg calories, avg cal/active-min per studio.
-- **Scorecards & PRs** — live formulas on `Data` columns (best tread pace and best 500m
-  split use `MINIFS` so blanks are excluded).
+- **Scorecards & PRs** — live formulas on `Data` columns, including **YTD / MTD** classes,
+  calories, and splats (calendar year/month of today), plus all-time PRs (best tread pace
+  and best 500m split use `MINIFS` so blanks are excluded).
 
-**Initialize Sheet** fully rebuilds `Dash_Calc` (required once after deploying **1.5.0**).
-Routine scrapes only refresh the monthly band — they do not rebuild QUERY scorecard bands.
+**Initialize Sheet** fully rebuilds `Dash_Calc` (required when CHANGELOG says so, e.g.
+after **1.5.3** scorecard layout changes). Routine scrapes (**1.5.3+**) do **not** call
+`ensureSheets()` / clear Dash_Calc — they only refresh the monthly band when rows are added.
 
 ### Refresh contract
 
 | Action | Dash_Calc behavior |
 |--------|-------------------|
-| **Initialize Sheet** | Full rebuild (clear + headers + formats + QUERY bands + monthly body) |
-| **Update / Full Scrape** (rows added) | Monthly band **A–S** + By Coach / By Studio QUERY anchors |
+| **Initialize Sheet** | Full rebuild (clear + headers + formats + QUERY bands + monthly body + scorecards) |
+| **Update / Full Scrape** (rows added) | Monthly band **A–S** + By Coach / By Studio QUERY anchors via light refresh |
+| **Update / Full Scrape** (no rows added) | No Dash_Calc rebuild (missing tabs created only if absent) |
 | **Add Manual Row** | Monthly band **A–S** + By Coach / By Studio QUERY anchors |
 | **Refresh Dashboard Calcs** (menu or button) | Monthly band **A–S** + By Coach / By Studio QUERY anchors |
 | **Clear All / Clear Email / Reset Sheet** | Full rebuild via Initialize path |
 | **Manual edit on Data** | See tiers below |
-| Status-only scrape updates | No monthly refresh |
 
 ### Manual Data corrections
 
@@ -148,25 +161,27 @@ Routine scrapes only refresh the monthly band — they do not rebuild QUERY scor
    recalc via formula — usually **no** refresh action.
 3. **Wrong monthly driver** (date, calories, splats, avg HR, zone minutes) → edit Data,
    then **OTF Scraper → Refresh Dashboard Calcs** (not Initialize).
-4. **Broken layout / first run after 1.5.0 deploy** → **Initialize Sheet** once, then normal workflow.
+4. **Broken layout / first run after a Dash_Calc layout change** → **Initialize Sheet**
+   once, then normal workflow.
 
 **Example:** Correcting implausible rower watts on Data updates **PR: Max Rower Avg Watts**
-(`AK13`) and **PR: Max Rower Watts** (`AK14`) via formula; monthly **A–S** unchanged
+and **PR: Max Rower Watts** via formula; monthly **A–S** unchanged
 unless you also changed calories/zones/date.
 
 **Note:** Avg calories/splats in the monthly band divide by class count. Legacy QUERY
 `avg()` ignored blank calories/splats on some rows; values match when every class in the
 month has those fields populated.
 
-### Migration (1.3.9 → 1.5.0)
+### Migration (older builds → 1.5.4)
 
-1. `clasp push` and hard-reload the spreadsheet.
-2. Run **Initialize Sheet** once (Welcome must show **1.5.0**). Do **not** run Update
-   before Initialize — light refresh expects the new monthly layout.
+1. `clasp push` (or replace all required files) and hard-reload the spreadsheet.
+2. Run **Initialize Sheet** once (Welcome must show **1.5.4**). Do **not** run Update
+   before Initialize when CHANGELOG says Initialize is required.
 3. Normal workflow: Update / Add Manual Row only (no Initialize per scrape).
 
-Versions **1.4.0–1.4.3** (formula-based monthly spine) were reverted; **1.5.0** uses
-script aggregation. Rollback: revert to **1.3.9**, `clasp push`, Initialize Sheet.
+See **CHANGELOG.md**. Versions **1.4.0–1.4.3** (formula-based monthly spine) were
+reverted; **1.5.0+** uses script aggregation. Rollback: revert to **1.3.9**, `clasp push`,
+Initialize Sheet.
 
 ### Wire Refresh Dashboard button (one-time)
 
@@ -175,19 +190,19 @@ script aggregation. Rollback: revert to **1.3.9**, `clasp push`, Initialize Shee
 3. Place on Dashboard or Data where you fix values.
 
 This build only creates the **aggregation tables** — you build the FIXED charts yourself
-against these ranges.
+against these ranges (or use the published layout template).
 
 **Do NOT attach slicers to `Dash_Calc`.** Build FIXED charts off its ranges; toggling a
 slicer on the Dashboard/Data tab will not change them. Jump to it via **OTF Scraper →
-View Dashboard Data**.
+View chart data (Dash_Calc)**.
 
 ---
 
 ## Setup
 
-For first-time sheet setup and routine use, see the **Welcome** tab after Initialize Sheet. Summary below.
+**Civilians:** follow `fixtures/USER_GUIDE.md` (PhoenixBunny-style paste path). Summary for developers below.
 
-### Option A — develop locally with clasp (recommended)
+### Option A — develop locally with clasp (recommended for contributors)
 1. Create a new Google Sheet → **Extensions → Apps Script** to create the bound project.
 2. Copy the **Script ID** (Apps Script editor → Project Settings → IDs).
 3. `npm i -g @google/clasp && clasp login`.
@@ -196,22 +211,25 @@ For first-time sheet setup and routine use, see the **Welcome** tab after Initia
    `dev/` are excluded).
 
 ### Option B — paste into the Apps Script editor
-Create one script file per `.js` here (same names) and paste `appsscript.json` into the
-manifest. The `parsers/...` files can be flat files (e.g. `Header.gs`); Apps Script shares
-one global scope across all files.
+Prefer the User Guide checklist (Copy button, names without `.js` / `.html` suffixes, no
+parser folders). Create one script file per runtime module and paste `appsscript.json`
+into the manifest. Do not put `Tests.js` in the civilian required set unless you also
+generate `Fixtures.js`.
 
 ### First run / authorization
 1. Reload the Sheet → an **OTF Scraper** menu appears.
-2. Run **OTF Scraper → Initialize Sheet** (creates Welcome, Data, and Log tabs).
+2. Run **OTF Scraper → Initialize Sheet** (creates Welcome, Data, Log, and Dash_Calc).
 3. The first scrape prompts for OAuth consent. Approve the requested scopes:
-   - `gmail.readonly` (read your OTF emails — the script never writes/deletes mail),
-   - `spreadsheets.currentonly` (write to this sheet only).
+   - `gmail.readonly` (read email — script searches OTbeat sender only),
+   - `spreadsheets.currentonly` (this spreadsheet only),
+   - `script.container.ui` (Add Manual Row dialog).
 
 ### Wire the on-sheet buttons (one-time, manual)
-Apps Script cannot create Drawing buttons programmatically:
+Apps Script cannot create Drawing buttons programmatically. The layout template may
+already include them — check Assign script before redrawing.
 1. **Insert → Drawing** → draw a button labeled "Update" → Save and Close.
 2. Click the drawing → ⋮ → **Assign script** → enter `runUpdate`.
-3. Repeat with a second drawing labeled "Full Scrape" → assign `runFullScrape`.
+3. Repeat with **Full Scrape** → `runFullScrape`.
 
 (The same actions are always available under the **OTF Scraper** menu.)
 
@@ -220,16 +238,17 @@ Apps Script cannot create Drawing buttons programmatically:
 ## Usage
 
 - **Update (since last class)** — scrapes everything dated on/after your most recent
-  recorded Email class (may add several). Fast for routine syncing.
+  recorded Email class (may add several). Gmail work is incremental; Sheets work is light
+  on **1.5.3+** (no full Dash_Calc rebuild).
 - **Full Scrape (all emails)** — scans every sender email for anything missing. Use after
-  a long gap or for the initial import.
+  a long gap or for the initial import. Not a timeout workaround.
 - **Add Manual Row** — for sessions with no scrapable email (e.g. the 2020–2023 gap). Opens
   a form where you can enter the full set of metrics (date required; everything else
   optional and left blank if untouched). The row is tagged `Source = Manual`, is excluded
   from dedupe/reflagging, and is kept ordered by date but never rewritten. Toast includes
   “Dashboard data updated.” when the monthly band refreshes.
-- **Refresh Dashboard Calcs** — recomputes monthly band **A–S** after you edit date,
-  calories, splats, HR, or zone minutes directly on Data (also assignable to a Drawing).
+- **Refresh Dashboard Calcs** — recomputes monthly band **A–S** (and QUERY anchors) after
+  you edit date, calories, splats, HR, or zone minutes directly on Data.
 - **View Log** — opens the Log tab (timestamp, run type, scanned/added/skipped/flags/errors).
 
 Review anything with text in the **Status** column.
@@ -238,10 +257,11 @@ Review anything with text in the **Status** column.
 
 ## Tests
 
-In the Apps Script editor, run the `runTests` function and check **View → Logs**. It asserts
-parsed values against the embedded fixtures (e.g. current sample: Calories 1003, Splat 8,
-Avg HR 137, Peak 161, Steps 4240), per-section presence, an unseen-variant body, the
-partial-parse / unknown-template flags, normalization, and dedupe keys.
+In the Apps Script editor, run the `runTests` function and check the execution log (or
+**Executions**). It asserts parsed values against the embedded fixtures (e.g. current
+sample: Calories 1003, Splat 8, Avg HR 137, Peak 161, Steps 4240), per-section presence,
+an unseen-variant body, the partial-parse / unknown-template flags, normalization, and
+dedupe keys. `runTests` requires generated `Fixtures.js` (`node dev/genFixtures.js`).
 
 During local development you can run the same logic under Node (no GAS, no deps):
 
@@ -257,7 +277,9 @@ Apps Script shares a single global scope.
 ---
 
 ## Out of scope
-- Dashboard / chart construction (native Sheets, user-owned).
-- CSV import of old history (un-scrapable 2018 rows are re-added manually).
+- Cost / late-cancel ledger (not in OTbeat emails).
+- Class-type column (2G / Lift / Tread50 / etc.).
+- Pre-2018 email parser (samples welcome).
+- CSV import of old history (un-scrapable rows are re-added manually).
 - Time-based / automatic triggers (manual buttons only).
 - Any writing to Gmail (read-only).

@@ -278,13 +278,24 @@ function buildScorecards_() {
     var r = dashColRange_(key);
     return '=MINIFS(' + r + ', ' + r + ', "<>")';
   }
+  var dateR = dashColRange_('date');
+  var calR = dashColRange_('calories');
+  var splatR = dashColRange_('splatPoints');
+  var ytdStart = 'DATE(YEAR(TODAY()),1,1)';
+  var mtdStart = 'DATE(YEAR(TODAY()),MONTH(TODAY()),1)';
   return [
-    { label: 'Total Classes', formula: '=COUNT(' + dashColRange_('date') + ')', format: '#,##0' },
-    { label: 'Total Calories', formula: '=SUM(' + dashColRange_('calories') + ')', format: '#,##0' },
-    { label: 'Total Splat Points', formula: '=SUM(' + dashColRange_('splatPoints') + ')', format: '#,##0' },
-    { label: 'Avg Calories / Class', formula: '=IFERROR(AVERAGE(' + dashColRange_('calories') + '), "")', format: '0.0' },
-    { label: 'PR: Max Calories', formula: '=MAX(' + dashColRange_('calories') + ')', format: '#,##0' },
-    { label: 'PR: Max Splat Points', formula: '=MAX(' + dashColRange_('splatPoints') + ')', format: '#,##0' },
+    { label: 'Total Classes', formula: '=COUNT(' + dateR + ')', format: '#,##0' },
+    { label: 'Total Calories', formula: '=SUM(' + calR + ')', format: '#,##0' },
+    { label: 'Total Splat Points', formula: '=SUM(' + splatR + ')', format: '#,##0' },
+    { label: 'Avg Calories / Class', formula: '=IFERROR(AVERAGE(' + calR + '), "")', format: '0.0' },
+    { label: 'YTD Classes', formula: '=COUNTIFS(' + dateR + ',">="&' + ytdStart + ')', format: '#,##0' },
+    { label: 'YTD Calories', formula: '=SUMIFS(' + calR + ',' + dateR + ',">="&' + ytdStart + ')', format: '#,##0' },
+    { label: 'YTD Splat Points', formula: '=SUMIFS(' + splatR + ',' + dateR + ',">="&' + ytdStart + ')', format: '#,##0' },
+    { label: 'MTD Classes', formula: '=COUNTIFS(' + dateR + ',">="&' + mtdStart + ')', format: '#,##0' },
+    { label: 'MTD Calories', formula: '=SUMIFS(' + calR + ',' + dateR + ',">="&' + mtdStart + ')', format: '#,##0' },
+    { label: 'MTD Splat Points', formula: '=SUMIFS(' + splatR + ',' + dateR + ',">="&' + mtdStart + ')', format: '#,##0' },
+    { label: 'PR: Max Calories', formula: '=MAX(' + calR + ')', format: '#,##0' },
+    { label: 'PR: Max Splat Points', formula: '=MAX(' + splatR + ')', format: '#,##0' },
     { label: 'PR: Max Tread Distance', formula: '=MAX(' + dashColRange_('treadTotalDistance') + ')', format: '0.00' },
     { label: 'PR: Best Tread Pace', formula: minifsNonBlank_('treadAvgPace'), format: '[mm]:ss' },
     { label: 'PR: Max Elevation / Mile', formula: '=MAX(' + dashColRange_('_elevPerMile') + ')', format: '0.00' },

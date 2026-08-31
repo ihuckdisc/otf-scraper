@@ -15,7 +15,7 @@ function logRun(runType, stats) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var log = ss.getSheetByName(SHEETS.LOG);
   if (!log) {
-    ensureSheets();
+    ensureSheetsForScrape_();
     log = ss.getSheetByName(SHEETS.LOG);
   }
   log.appendRow([

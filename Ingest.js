@@ -175,7 +175,7 @@ function applyStatusUpdates_(updates, stats) {
 
 /** Menu action: incremental scrape since the last recorded Email class. */
 function runUpdate() {
-  ensureSheets();
+  ensureSheetsForScrape_();
   var last = findLastClassDate();
   if (!last) {
     // No prior Email rows -> behave like a full scrape.
@@ -189,6 +189,6 @@ function runUpdate() {
 
 /** Menu action: scan all sender mail for anything missing. */
 function runFullScrape() {
-  ensureSheets();
+  ensureSheetsForScrape_();
   return scrapeMessages_(GMAIL.base, 'Full Scrape');
 }
